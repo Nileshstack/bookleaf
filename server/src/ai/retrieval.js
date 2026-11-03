@@ -77,7 +77,7 @@ export const buildKnowledgeContext = ({ category, text }) => {
  * number the model may quote is also returned in `amounts`, so the draft can
  * be checked for invented figures afterwards.
  */
-export const buildBookFacts = (book, now = new Date()) => {
+export const buildBookFacts = (book, now = new Date(), { category } = {}) => {
   if (!book) return { text: 'Book: none selected (General / Account Level query).', amounts: [] };
 
   const lines = [`Book: "${book.title}" (${book.bookId})${book.genre ? `, ${book.genre}` : ''}`];
@@ -115,14 +115,19 @@ export const buildBookFacts = (book, now = new Date()) => {
     lines.push(`Pending ${inr(r.pending)} is above the ${inr(ROYALTY_POLICY.payoutThreshold)} minimum, so it is eligible for payout.`);
   }
 
-  if (r.pending > 0) {
+  // Payout timing and the overdue directive only for money questions. On an ISBN
+  // or printing ticket they made the model change the subject to royalties.
+  const aboutMoney = !category || category === 'Royalty & Payments' || category === 'General Inquiry';
+  if (!aboutMoney) {
+    lines.push('This ticket is not about royalties: do not bring up payouts or royalty amounts unless the author asks.');
+  } else if (r.pending > 0) {
     const next = nextScheduledPayout(now);
     lines.push(
       `Next scheduled payout deadline: ${longDate(next.payoutBy)} (for the quarter ending ${longDate(next.quarterEnd)})`,
     );
   }
 
-  if (payoutAppearsOverdue(book, now)) {
+  if (aboutMoney && payoutAppearsOverdue(book, now)) {
     const since = book.lastRoyaltyPayoutDate ?? book.publicationDate;
     lines.push(
       `OVERDUE CHECK: no payout for ${monthsBetween(since, now)} months while the balance is above the threshold, so this looks overdue under the quarterly policy. Own the delay and escalate with a 48-hour resolution timeline.`,

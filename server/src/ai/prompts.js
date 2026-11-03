@@ -12,7 +12,8 @@ import { renderToneGuidelines } from './retrieval.js';
 
 export const CLASSIFY_PROMPT_VERSION = 'classify-v1';
 // v2: internal notes may supply facts, never opinions (v1 forbade them entirely, and the model used them anyway).
-export const DRAFT_PROMPT_VERSION = 'draft-v2';
+// v3: payout deadline in the account overview; payout directives only on money tickets.
+export const DRAFT_PROMPT_VERSION = 'draft-v3';
 
 export const CLASSIFY_MAX_INPUT_CHARS = 1500;
 export const DRAFT_MAX_INPUT_CHARS = 1500;

@@ -77,7 +77,7 @@ export const postProcessDraft = (raw, { allowedAmounts, allowedDates, finishReas
 export const generateDraft = async ({ ticket, book, author, authorBooks = [], messages = [], now = new Date() }, { client }) => {
   const description = truncate(ticket.description, DRAFT_MAX_INPUT_CHARS);
   const kb = buildKnowledgeContext({ category: ticket.category, text: `${ticket.subject}\n${description}` });
-  const facts = book ? buildBookFacts(book, now) : buildAccountOverview(authorBooks, now);
+  const facts = book ? buildBookFacts(book, now, { category: kb.category }) : buildAccountOverview(authorBooks, now);
   const { text: authorLine } = buildAuthorLine(author, now);
 
   const userMessage = buildDraftUserMessage({

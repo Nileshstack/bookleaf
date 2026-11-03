@@ -75,6 +75,17 @@ describe('book facts', () => {
     expect(amounts).toEqual(expect.arrayContaining([425, 38, 2546, 0, 1000]));
   });
 
+  // Regression (QA): ISBN and printing drafts turned into apologies for overdue royalties.
+  test('non-money tickets get the book facts without the payout directives', () => {
+    const { text } = buildBookFacts(published, NOW, { category: 'ISBN & Metadata Issues' });
+    expect(text).toContain('Status: Published & Live');
+    expect(text).not.toContain('OVERDUE');
+    expect(text).not.toContain('Next scheduled payout');
+    expect(text).toContain('do not bring up payouts');
+    expect(buildBookFacts(published, NOW, { category: 'Royalty & Payments' }).text).toContain('OVERDUE CHECK');
+    expect(buildBookFacts(published, NOW, { category: 'General Inquiry' }).text).toContain('OVERDUE CHECK');
+  });
+
   test('pending below ₹1,000 explains the rollover and is not flagged overdue', () => {
     const { text } = buildBookFacts({ ...published, totalRoyaltyEarned: 850, royaltyPending: 850 }, NOW);
     expect(text).toContain('Pending ₹850 is below the ₹1,000 minimum, so it rolls over');
