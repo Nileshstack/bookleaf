@@ -1,4 +1,20 @@
-import type { Book, FieldError, PageMeta, TicketDetail, TicketListItem, TicketStatus, User } from "./types";
+import type {
+  AdminMessage,
+  AdminStats,
+  AdminTicketDetail,
+  AiDraft,
+  AiUsageSummary,
+  Book,
+  FieldError,
+  PageMeta,
+  QueueItem,
+  TicketCategory,
+  TicketDetail,
+  TicketListItem,
+  TicketPriority,
+  TicketStatus,
+  User,
+} from "./types";
 
 /**
  * Typed client for the BookLeaf API.
@@ -19,14 +35,31 @@ export class ApiError extends Error {
   readonly code: string;
   readonly details: FieldError[];
   readonly requestId?: string;
+  /** Extra machine-readable fields some errors carry, e.g. { fallback: { template } } on AI_UNAVAILABLE. */
+  readonly extra: Record<string, unknown>;
 
-  constructor({ status, code, message, details = [], requestId }: { status: number; code: string; message: string; details?: FieldError[]; requestId?: string }) {
+  constructor({
+    status,
+    code,
+    message,
+    details = [],
+    requestId,
+    extra = {},
+  }: {
+    status: number;
+    code: string;
+    message: string;
+    details?: FieldError[];
+    requestId?: string;
+    extra?: Record<string, unknown>;
+  }) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.details = details;
     this.requestId = requestId;
+    this.extra = extra;
   }
 
   /** Field errors keyed by field name, for forms. */
@@ -87,12 +120,14 @@ async function request<T>(path: string, { method = "GET", body, query, signal, q
 
   if (!response.ok || !json?.success) {
     if (response.status === 401 && !quiet401) unauthorizedListeners.forEach((l) => l());
+    const { code, message, details, requestId, ...extra } = json?.error ?? {};
     throw new ApiError({
       status: response.status,
-      code: json?.error?.code ?? "UNKNOWN_ERROR",
-      message: json?.error?.message ?? `Something went wrong (HTTP ${response.status}). Please try again.`,
-      details: json?.error?.details ?? [],
-      requestId: json?.error?.requestId,
+      code: code ?? "UNKNOWN_ERROR",
+      message: message ?? `Something went wrong (HTTP ${response.status}). Please try again.`,
+      details: details ?? [],
+      requestId,
+      extra,
     });
   }
 
@@ -105,6 +140,28 @@ export interface NewTicketInput {
   description: string;
   attachments: { fileName: string; sizeBytes: number; mimeType: string }[];
 }
+
+export interface AdminQueueQuery {
+  status?: string;
+  category?: string;
+  priority?: string;
+  assignedTo?: string;
+  from?: string;
+  to?: string;
+  q?: string;
+  overdue?: string;
+  sort?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminReplyInput {
+  body: string;
+  wasAiDrafted: boolean;
+  status?: TicketStatus;
+}
+
+const adminTicketPath = (ref: string, suffix = "") => `/admin/tickets/${encodeURIComponent(ref)}${suffix}`;
 
 export const api = {
   auth: {
@@ -128,6 +185,31 @@ export const api = {
         `/tickets/${encodeURIComponent(ref)}/messages`,
         { method: "POST", body: { body } },
       ).then((r) => r.data),
+  },
+  admin: {
+    stats: (signal?: AbortSignal) => request<AdminStats>("/admin/stats", { signal }).then((r) => r.data),
+    aiUsage: (signal?: AbortSignal) =>
+      request<AiUsageSummary>("/admin/ai/usage", { query: { days: 30 }, signal }).then((r) => r.data),
+    queue: (query: AdminQueueQuery, signal?: AbortSignal) =>
+      request<QueueItem[]>("/admin/tickets", { query: { ...query }, signal }).then((r) => ({ items: r.data, meta: r.meta as PageMeta })),
+    ticket: (ref: string, signal?: AbortSignal) => request<AdminTicketDetail>(adminTicketPath(ref), { signal }).then((r) => r.data),
+    update: (
+      ref: string,
+      changes: { status?: TicketStatus; category?: TicketCategory; priority?: TicketPriority; assignedTo?: string | null },
+    ) => request<AdminTicketDetail>(adminTicketPath(ref), { method: "PATCH", body: changes }).then((r) => r.data),
+    assignToMe: (ref: string) =>
+      request<AdminTicketDetail>(adminTicketPath(ref, "/assign-to-me"), { method: "POST" }).then((r) => r.data),
+    addNote: (ref: string, body: string) =>
+      request<AdminMessage>(adminTicketPath(ref, "/notes"), { method: "POST", body: { body } }).then((r) => r.data),
+    reply: (ref: string, input: AdminReplyInput) =>
+      request<{ message: AdminMessage; ticket: { ticketNumber: string; status: TicketStatus } }>(adminTicketPath(ref, "/reply"), {
+        method: "POST",
+        body: input,
+      }).then((r) => r.data),
+    draft: (ref: string, { regenerate = false }: { regenerate?: boolean } = {}) =>
+      request<AiDraft>(adminTicketPath(ref, "/draft"), { method: "POST", query: { regenerate: String(regenerate) } }).then((r) => r.data),
+    classify: (ref: string) =>
+      request<AdminTicketDetail>(adminTicketPath(ref, "/classify"), { method: "POST" }).then((r) => r.data),
   },
   streams: {
     author: `${API_URL}/tickets/stream`,

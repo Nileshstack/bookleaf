@@ -47,6 +47,26 @@
   --shadow-card: 0 1px 2px rgb(28 42 51 / 0.04), 0 4px 16px -4px rgb(28 42 51 / 0.08);
   --shadow-pop: 0 10px 30px -10px rgb(28 42 51 / 0.25);
 
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  @keyframes shimmer {
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  /* New tickets arriving live in the admin queue. */
+  --animate-slide-in: slide-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  @keyframes slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   --animate-fade-in: fade-in 180ms ease-out;
   @keyframes fade-in {
     from {

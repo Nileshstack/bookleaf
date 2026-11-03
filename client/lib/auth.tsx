@@ -18,7 +18,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 /** Where each role lands after login, or when it opens the wrong area. */
 export const HOME_BY_ROLE: Record<Role, string> = {
   author: "/author/dashboard",
-  admin: "/admin",
+  admin: "/admin/dashboard",
 };
 
 /**

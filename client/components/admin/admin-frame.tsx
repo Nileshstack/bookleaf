@@ -1,15 +1,27 @@
 "use client";
 
-import { Inbox } from "lucide-react";
+import { Inbox, LayoutDashboard } from "lucide-react";
 import { RoleGate } from "@/components/auth/role-gate";
 import { AppShell, type NavItem } from "@/components/layout/app-shell";
+import { AdminLiveProvider } from "./admin-live";
 
-const NAV: NavItem[] = [{ href: "/admin", label: "Ticket queue", icon: <Inbox className="size-4" />, matchPrefix: true }];
-
+/** Guard, then the admin live stream, then the shell, for everything under /admin. */
 export function AdminFrame({ children }: { children: React.ReactNode }) {
   return (
     <RoleGate role="admin">
-      <AppShell nav={NAV}>{children}</AppShell>
+      <AdminLiveProvider>
+        {({ status, unseenCount }) => {
+          const nav: NavItem[] = [
+            { href: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard className="size-4" /> },
+            { href: "/admin/tickets", label: "Ticket queue", icon: <Inbox className="size-4" />, matchPrefix: true, badge: unseenCount },
+          ];
+          return (
+            <AppShell nav={nav} liveStatus={status}>
+              {children}
+            </AppShell>
+          );
+        }}
+      </AdminLiveProvider>
     </RoleGate>
   );
 }

@@ -1,8 +1,11 @@
 import { cn } from "@/lib/cn";
 
-export type Tone = "neutral" | "brand" | "success" | "warning" | "danger" | "info";
+export type Tone = "neutral" | "brand" | "success" | "warning" | "danger" | "info" | "orange" | "yellow" | "note";
 
 const tones: Record<Tone, string> = {
+  orange: "bg-orange-50 text-orange-800 ring-orange-600/30",
+  yellow: "bg-yellow-50 text-yellow-800 ring-yellow-600/35",
+  note: "bg-amber-100 text-amber-900 ring-amber-600/30",
   neutral: "bg-paper-2 text-ink-2 ring-line-strong",
   brand: "bg-brand-50 text-brand-700 ring-brand-200",
   success: "bg-success-50 text-success-700 ring-success-600/25",

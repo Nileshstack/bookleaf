@@ -17,6 +17,8 @@ export interface NavItem {
   matchPrefix?: boolean;
   /** Exact paths that should not highlight this item even if prefixed. */
   exclude?: string[];
+  /** Count bubble, e.g. new tickets since the queue was last viewed. */
+  badge?: number;
 }
 
 const isActive = (pathname: string, item: NavItem) =>
@@ -53,6 +55,17 @@ function NavLinks({ items, pathname, onNavigate }: { items: NavItem[]; pathname:
                 {item.icon}
               </span>
               {item.label}
+              {item.badge ? (
+                <span
+                  className={cn(
+                    "ml-auto min-w-5 animate-fade-in rounded-full px-1.5 text-center text-xs leading-5 font-semibold tabular-nums",
+                    active ? "bg-white text-brand-800" : "bg-danger-600 text-white",
+                  )}
+                >
+                  {item.badge}
+                  <span className="sr-only"> new</span>
+                </span>
+              ) : null}
             </Link>
           </li>
         );

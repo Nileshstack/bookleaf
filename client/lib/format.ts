@@ -34,6 +34,17 @@ export const relative = (value: string) => {
   return "just now";
 };
 
+/** Compact age for queue rows: 45m, 7h, 3d 4h. */
+export const ageLabel = (hours: number) => {
+  if (hours < 1) return "<1h";
+  if (hours < 24) return `${Math.floor(hours)}h`;
+  const days = Math.floor(hours / 24);
+  const rest = Math.floor(hours % 24);
+  return rest ? `${days}d ${rest}h` : `${days}d`;
+};
+
+export const percent = (rate: number | null | undefined) => (rate === null || rate === undefined ? DASH : `${Math.round(rate * 100)}%`);
+
 export const fileSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
