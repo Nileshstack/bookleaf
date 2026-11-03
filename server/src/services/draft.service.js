@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { aiClient, AiOutputError, AiUnavailableError } from '../ai/index.js';
 import { generateDraft } from '../ai/drafter.js';
-import { DEFAULT_CATEGORY, KB_VERSION } from '../ai/knowledgeBase.js';
+import { classifyWithRules } from '../ai/fallbackClassifier.js';
+import { KB_VERSION } from '../ai/knowledgeBase.js';
 import { DRAFT_PROMPT_VERSION } from '../ai/prompts.js';
 import { fallbackTemplate } from '../ai/templates.js';
 import { recordUsage } from '../ai/usage.js';
@@ -57,7 +58,9 @@ export const getDraft = async (_admin, ref, { regenerate = false, client = aiCli
   // General tickets have no referenced book; the drafter gets a one-line-per-book overview instead.
   const authorBooks = book ? [] : await Book.find({ authorId: ticket.authorId }).lean();
 
-  const category = ticket.category ?? ticket.aiCategory ?? DEFAULT_CATEGORY;
+  // Not classified yet (an admin can open a ticket the moment it arrives): pick the
+  // knowledge-base sections with the keyword rules instead of defaulting to General.
+  const category = ticket.category ?? ticket.aiCategory ?? classifyWithRules(ticket).category;
   const now = new Date();
   const contextHash = contextHashOf({ ticket, category, book, messages, model: client.model, day: now.toISOString().slice(0, 10) });
 

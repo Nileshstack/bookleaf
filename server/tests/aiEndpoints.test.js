@@ -241,6 +241,20 @@ describe('draft responses', () => {
     expect(reply.status).toBe(201);
   });
 
+  // Regression (QA): before classification finished, drafts got the General
+  // sections (company, metadata), so a royalty question had no royalty policy.
+  test('an unclassified ticket is drafted with the sections its text points to', async () => {
+    const t = await Ticket.create({
+      authorId: world.priya._id,
+      subject: 'Royalty seems too low',
+      description: 'My royalty payment seems too low for the copies sold. How is it calculated?',
+    });
+    expect(t.category).toBeNull();
+    const res = await postAdmin(draftPath(t));
+    expect(res.body.data.context.sections).toEqual(['royalty']);
+    expect(create.mock.calls[0][0].messages[1].content).toContain('## Royalty policy');
+  });
+
   test('a draft quoting an amount not in the records comes back with a warning', async () => {
     create.mockResolvedValue(completion('Hi Priya,\n\nYou will get ₹9,999.\n\nWarm regards,\nTeam BookLeaf'));
     const res = await postAdmin(draftPath(world.priyaTicket, '?regenerate=true'));
