@@ -1,6 +1,6 @@
 # Architecture (draft)
 
-> Status: backend complete (auth, author + admin APIs, AI layer, SSE). Frontend: author portal done; admin console next.
+> Status: backend complete (auth, author + admin APIs, AI layer, SSE). Frontend: author and admin portals done.
 
 ## Overview
 
@@ -278,12 +278,13 @@ client/
 ├── app/                  routes: thin server page.tsx (metadata, Suspense) + a client *-view.tsx
 │   ├── login/            sign-in with a demo-credentials panel
 │   ├── author/           dashboard, books, tickets, tickets/new, tickets/[id]
-│   └── admin/            guarded placeholder (console is the next step)
+│   └── admin/            dashboard, tickets (queue), tickets/[id] (workspace)
 ├── components/
 │   ├── ui/               button, card, badge, field, skeleton, empty/error/loading states
 │   ├── layout/           AppShell: sidebar on desktop, top bar + menu on mobile, skip link
 │   ├── auth/             RoleGate
 │   ├── author/           AuthorFrame, AuthorLiveProvider (one SSE stream per tab)
+│   ├── admin/            AdminFrame, AdminLiveProvider, queue badges, charts, triage controls, notes, DraftPanel
 │   ├── books/, tickets/  domain components (production stepper, payout note, status badge, dropzone)
 └── lib/                  api.ts, auth.tsx, useSSE.ts, useResource.ts, types.ts, format.ts
 ```
@@ -315,3 +316,29 @@ Decisions:
   - The thread is a `role="log"` live region.
   - Progress bars have ARIA values.
   - Skip link, visible focus ring, and reduced-motion support.
+
+### Admin portal
+
+- **Dashboard** (`/admin/dashboard`):
+  - Stat cards for open, critical, overdue, average age and AI override rate. Each links to the matching queue filter.
+  - recharts bar charts by category and by priority, switchable between the open queue (from `/admin/stats` `unresolved.byCategory` / `byPriority`) and all time. Each chart has a visually hidden data table for screen readers.
+  - AI health (classified / fallback / pending, draft adoption, 30-day cost, breaker state) and a "needs attention" list.
+- **Queue** (`/admin/tickets`):
+  - Every filter lives in the URL (shareable, survives refresh): status, defaulting to Open + In Progress; category; priority; date range; assigned to me or unassigned; overdue; debounced search, with `/` to focus it; and sort, defaulting to urgency then age. Pagination is server-side.
+  - Critical and overdue rows get a red tint and a left accent; High gets an orange accent. Priority badges: Critical red, High orange, Medium yellow, Low gray.
+  - Ages are shown as `3d 4h` with an overdue clock icon and text, not colour alone.
+  - Pending tickets show an "AI classifying…" shimmer; failed ones show a "Rule-based fallback" tag.
+  - The table becomes cards below `lg`.
+- **Live queue**: `AdminLiveProvider` owns one admin stream per tab.
+  - A `new_ticket` event triggers a toast with "Open", a sidebar count badge while you're away from the queue, and a slide-in highlight for 8 s.
+  - Other events trigger a debounced silent refetch.
+- **Workspace** (`/admin/tickets/[id]`), two columns:
+  - **Left:** an author and book context card (account royalty totals, the referenced book's figures, platforms, next payout deadline, other open tickets), the public thread (AI-assisted replies tagged), and the **DraftPanel**.
+  - **Right, sticky:** triage controls (status, category and priority with "AI suggested" chips, Overridden + "Use AI suggestion", the AI reasoning and confidence in a keyboard-accessible tooltip, Retry AI after a fallback, Assign to me), then the yellow **Internal notes** panel marked "Not visible to author".
+- **DraftPanel:**
+  - It auto-loads the draft once per ticket, with a skeleton and a "Write manually instead" escape. The text stays editable.
+  - Regenerate asks again before replacing edits.
+  - `wasAiDrafted` is sent when the text came from the AI (or the last saved AI draft).
+  - Ctrl+Enter sends; Ctrl+Shift+Enter sends and resolves. Sending on a Closed ticket reopens it.
+  - On a 503 it shows a non-blocking "AI unavailable: write manually" banner with **Insert template** and **Use last draft**. Sending and every other control keep working.
+  - It deliberately does not abort the draft request on unmount: Strict Mode and Activity remount with state preserved, so the in-flight draft must still land.
