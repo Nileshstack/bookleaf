@@ -11,6 +11,8 @@ import type { NextConfig } from "next";
 const apiProxyTarget = process.env.API_PROXY_TARGET?.replace(/\/$/, "");
 
 const nextConfig: NextConfig = {
+  // The Playwright suite builds into its own folder so it never disturbs a running `next dev`.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   experimental: {
     agentFeedback: true,
   },
