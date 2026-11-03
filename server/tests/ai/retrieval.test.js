@@ -99,8 +99,23 @@ describe('book facts', () => {
 
   test('General query without a book gets a one-line-per-book overview', () => {
     const { text } = buildAccountOverview([published, { bookId: 'BK015', title: 'Raising Roots', status: 'In Production - Typesetting' }], NOW);
-    expect(text).toContain('"Between Two Temples" (BK005): live; earned ₹2,546, paid ₹0, pending ₹2,546');
+    expect(text).toContain('"Between Two Temples" (BK005): live; earned ₹2,546, paid ₹0, pending ₹2,546, never paid');
     expect(text).toContain('"Raising Roots" (BK015): not yet published, stage Typesetting');
+  });
+
+  // Regression (QA): with no deadline in the overview the model invented one ("November 30, 2026").
+  test('overview gives the computed payout deadline and flags overdue books', () => {
+    const { text, amounts } = buildAccountOverview([published], NOW);
+    expect(text).toContain('payout looks OVERDUE');
+    expect(text).toContain('Total pending across books: ₹2,546');
+    expect(text).toContain('Next scheduled payout deadline: 14 November 2026 (for the quarter ending 30 September 2026)');
+    expect(amounts).toEqual(expect.arrayContaining([1000, 2546]));
+  });
+
+  test('overview has no payout lines when nothing is pending', () => {
+    const { text } = buildAccountOverview([{ ...published, royaltyPaid: 2546, royaltyPending: 0, lastRoyaltyPayoutDate: new Date('2026-08-14') }], NOW);
+    expect(text).not.toContain('Next scheduled payout');
+    expect(text).not.toContain('OVERDUE');
   });
 });
 

@@ -144,13 +144,27 @@ export const buildBookFacts = (book, now = new Date()) => {
  */
 export const buildAccountOverview = (books = [], now = new Date()) => {
   if (!books.length) return { text: 'Account overview: no books on record.', amounts: [] };
-  const amounts = [];
+  const amounts = [ROYALTY_POLICY.payoutThreshold];
+  let totalPending = 0;
   const lines = books.map((b) => {
     if (!isPublished(b)) return `- "${b.title}" (${b.bookId}): not yet published, stage ${productionProgress(b).currentStage}`;
     const r = royaltyBreakdown(b, now);
     amounts.push(r.totalEarned, r.paid, r.pending);
-    return `- "${b.title}" (${b.bookId}): live; earned ${inr(r.totalEarned)}, paid ${inr(r.paid)}, pending ${inr(r.pending)}`;
+    totalPending += r.pending;
+    const lastPayout = r.lastPayoutDate ? `last payout ${longDate(r.lastPayoutDate)}` : 'never paid';
+    const overdue = payoutAppearsOverdue(b, now) ? '; payout looks OVERDUE under the quarterly policy' : '';
+    return `- "${b.title}" (${b.bookId}): live; earned ${inr(r.totalEarned)}, paid ${inr(r.paid)}, pending ${inr(r.pending)}, ${lastPayout}${overdue}`;
   });
+
+  // Without these the model fills in payout dates itself (seen in QA: "November 30, 2026").
+  if (totalPending > 0) {
+    amounts.push(totalPending);
+    const next = nextScheduledPayout(now);
+    lines.push(
+      `Total pending across books: ${inr(totalPending)} (minimum payout ${inr(ROYALTY_POLICY.payoutThreshold)}; smaller balances roll over to the next quarter)`,
+      `Next scheduled payout deadline: ${longDate(next.payoutBy)} (for the quarter ending ${longDate(next.quarterEnd)})`,
+    );
+  }
   return { text: ['Account overview (all books):', ...lines].join('\n'), amounts };
 };
 
