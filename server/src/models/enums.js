@@ -1,0 +1,28 @@
+/**
+ * Domain vocabulary shared by models, validators and AI prompts. Keeping it
+ * in one place means the AI can only ever be asked to pick from values the
+ * schema will actually accept.
+ */
+
+export const ROLES = Object.freeze({ AUTHOR: 'author', ADMIN: 'admin' });
+
+export const TICKET_STATUSES = Object.freeze(['Open', 'In Progress', 'Resolved', 'Closed']);
+
+export const TICKET_CATEGORIES = Object.freeze([
+  'Royalty & Payments',
+  'ISBN & Metadata Issues',
+  'Printing & Quality',
+  'Distribution & Availability',
+  'Book Status & Production Updates',
+  'General Inquiry',
+]);
+
+export const TICKET_PRIORITIES = Object.freeze(['Critical', 'High', 'Medium', 'Low']);
+
+// Lower rank = more urgent. Stored on the ticket so the queue can sort by
+// urgency with an index instead of sorting priority labels alphabetically.
+export const PRIORITY_RANK = Object.freeze({ Critical: 0, High: 1, Medium: 2, Low: 3 });
+
+export const AI_STATUSES = Object.freeze(['pending', 'done', 'failed']);
+
+export const SENDER_ROLES = Object.freeze([ROLES.AUTHOR, ROLES.ADMIN]);

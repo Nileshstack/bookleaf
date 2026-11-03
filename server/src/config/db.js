@@ -12,7 +12,11 @@ export const connectDB = async () => {
   logger.info('MongoDB connected', { host: mongoose.connection.host });
 };
 
-export const disconnectDB = () => mongoose.connection.close();
+export const disconnectDB = () => {
+  // Intentional shutdown: drop the listener so it isn't logged as an outage.
+  mongoose.connection.removeAllListeners('disconnected');
+  return mongoose.connection.close();
+};
 
 // readyState: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
 export const isDBConnected = () => mongoose.connection.readyState === 1;
