@@ -23,6 +23,9 @@ const SECTION_LABEL: Record<string, string> = {
   production: "Production stages",
 };
 
+/** Template gaps such as "[book title]"; drafts from the model never contain these. */
+const PLACEHOLDER = /\[[^\]\n]{3,}\]/;
+
 /** Where the text in the box came from. Decides wasAiDrafted when sending. */
 type Origin = "ai" | "stale" | "template" | "manual";
 type Phase = "loading" | "ready" | "unavailable" | "sent";
@@ -124,6 +127,12 @@ export function DraftPanel({
   const send = async (resolve: boolean) => {
     const body = text.trim();
     if (!body || sending) return;
+    // A template still holding "[book title]"-style gaps must not reach the author.
+    if (origin === "template" && PLACEHOLDER.test(body)) {
+      toast.error("Fill in or remove the [bracketed] parts of the template before sending.");
+      textRef.current?.focus();
+      return;
+    }
     const status: TicketStatus | undefined = resolve ? "Resolved" : closed ? "In Progress" : undefined;
     setSending(resolve ? "resolve" : "reply");
     try {
@@ -162,7 +171,10 @@ export function DraftPanel({
                   : origin === "stale"
                     ? "Last saved AI draft. It may predate the newest messages."
                     : "Writing manually")}
-            {phase === "unavailable" && "AI drafting is unavailable. You can still reply."}
+            {phase === "unavailable" &&
+              (origin === "template"
+                ? "AI drafting is unavailable. Template inserted: fill in the [bracketed] parts."
+                : "AI drafting is unavailable. You can still reply.")}
             {phase === "sent" && "Reply sent. The author sees it instantly."}
           </p>
         </div>
