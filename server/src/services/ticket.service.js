@@ -7,6 +7,7 @@ import { resolveOwnedBookId } from './book.service.js';
 import { presentMessage, presentTicket } from './presenters.js';
 import * as events from './ticketEvents.js';
 import { classifyTicket } from './triage.service.js';
+import { preview } from '../utils/text.js';
 
 /**
  * Author-side ticket lifecycle. Every function takes the authenticated user
@@ -14,9 +15,6 @@ import { classifyTicket } from './triage.service.js';
  */
 
 const BOOK_FIELDS = 'bookId title';
-const PREVIEW_LENGTH = 140;
-
-const preview = (text) => (text.length > PREVIEW_LENGTH ? `${text.slice(0, PREVIEW_LENGTH - 1).trimEnd()}…` : text);
 
 /** Scoped lookup shared by every single-ticket operation: missing and not-yours are both 404. */
 const findOwnedTicket = async (ref, user) => {

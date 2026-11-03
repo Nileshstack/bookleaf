@@ -8,6 +8,7 @@ import { PUBLISHED_STATUS } from './bookInsights.js';
 import { presentMessage, presentTicket } from './presenters.js';
 import * as events from './ticketEvents.js';
 import { overdueFilter, ticketTiming } from './ticketInsights.js';
+import { preview } from '../utils/text.js';
 
 /**
  * Admin queue and ticket management. Admins see every ticket, so there's no
@@ -16,7 +17,6 @@ import { overdueFilter, ticketTiming } from './ticketInsights.js';
 
 const BOOK_FIELDS = 'bookId title';
 const PERSON_FIELDS = 'name email authorCode';
-const PREVIEW_LENGTH = 140;
 
 const SORTS = {
   // Unresolved first, then most urgent (Critical = rank 0), then oldest.
@@ -28,7 +28,6 @@ const SORTS = {
 };
 
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const preview = (text) => (text.length > PREVIEW_LENGTH ? `${text.slice(0, PREVIEW_LENGTH - 1).trimEnd()}…` : text);
 
 const authorRefToId = async (ref) => {
   if (isObjectId(ref)) return ref;

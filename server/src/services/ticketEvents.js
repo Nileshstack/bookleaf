@@ -1,6 +1,7 @@
 import { ROLES } from '../models/index.js';
 import { ADMINS_CHANNEL, publish, userChannel } from './eventHub.js';
 import { presentMessage } from './presenters.js';
+import { preview } from '../utils/text.js';
 
 /**
  * Domain events, and the only place that decides what each audience sees.
@@ -18,8 +19,6 @@ import { presentMessage } from './presenters.js';
  */
 
 const id = (v) => (v ? String(v._id ?? v) : null);
-const PREVIEW_LENGTH = 140;
-const preview = (text = '') => (text.length > PREVIEW_LENGTH ? `${text.slice(0, PREVIEW_LENGTH - 1).trimEnd()}…` : text);
 
 const authorTicket = (t) => ({
   ticketId: id(t._id),
