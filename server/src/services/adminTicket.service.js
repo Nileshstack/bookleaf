@@ -134,6 +134,13 @@ export const listQueue = async (admin, query) => {
   return { items, meta: pageMeta(query, total) };
 };
 
+/** Resolves a ticket ref (id or BL number) to its _id, or 404. */
+export const resolveTicketId = async (ref) => {
+  const ticket = await Ticket.findOne(refFilter(ref, 'ticketNumber')).select('_id').lean();
+  if (!ticket) throw AppError.notFound('Ticket');
+  return ticket._id;
+};
+
 const findTicketDoc = async (ref) => {
   const ticket = await Ticket.findOne(refFilter(ref, 'ticketNumber'));
   if (!ticket) throw AppError.notFound('Ticket');

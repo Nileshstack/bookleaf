@@ -74,6 +74,12 @@ export const updateTicketBody = z
     message: 'Provide at least one of: status, category, priority, assignedTo',
   });
 
+const booleanFlag = z.enum(['true', 'false']).transform((v) => v === 'true');
+
+export const draftQuery = z.object({ regenerate: booleanFlag.default(false) });
+
+export const aiUsageQuery = z.object({ days: z.coerce.number().int().min(1).max(90).default(30) });
+
 const messageText = z
   .string({ error: 'Message is required' })
   .trim()

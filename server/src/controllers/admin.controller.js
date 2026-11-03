@@ -1,4 +1,8 @@
+import { aiClient } from '../ai/index.js';
+import { usageSummary } from '../ai/usage.js';
 import * as adminTickets from '../services/adminTicket.service.js';
+import * as drafts from '../services/draft.service.js';
+import * as triage from '../services/triage.service.js';
 import * as realtime from '../services/realtime.service.js';
 import * as stats from '../services/stats.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
@@ -28,6 +32,19 @@ export const addNote = async (req, res) => {
 
 export const reply = async (req, res) => {
   sendSuccess(res, await adminTickets.replyToAuthor(req.user, ticketRef(req), req.validated.body), { statusCode: 201 });
+};
+
+export const classify = async (req, res) => {
+  const ticket = await triage.classifyTicket(await adminTickets.resolveTicketId(ticketRef(req)), { force: true });
+  sendSuccess(res, await adminTickets.getTicketDetail(req.user, ticket._id.toString()));
+};
+
+export const draft = async (req, res) => {
+  sendSuccess(res, await drafts.getDraft(req.user, ticketRef(req), req.validated.query));
+};
+
+export const aiUsage = async (req, res) => {
+  sendSuccess(res, { ...(await usageSummary(req.validated.query)), client: aiClient.status() });
 };
 
 export const getStats = async (_req, res) => {

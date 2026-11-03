@@ -73,6 +73,7 @@ export const errorHandler = (err, req, res, _next) => {
       message: error.message,
       // Always an array so clients can iterate without null checks.
       details: Array.isArray(error.details) ? error.details : [],
+      ...(error.extra && typeof error.extra === 'object' && error.extra),
       requestId: req.id,
       // Raw messages of unexpected errors help locally but must never leak in production.
       ...(!known && !env.isProd && { debug: err.message }),

@@ -4,12 +4,15 @@
  * anything else is treated as a bug and its details are hidden.
  */
 export class AppError extends Error {
-  constructor(message, { statusCode = 500, code = 'INTERNAL_ERROR', details } = {}) {
+  constructor(message, { statusCode = 500, code = 'INTERNAL_ERROR', details, extra } = {}) {
     super(message);
     this.name = 'AppError';
     this.statusCode = statusCode;
     this.code = code;
     this.details = details;
+    // Additional machine-readable fields merged into the error body, e.g. a
+    // fallback template when the AI is unavailable.
+    this.extra = extra;
     this.isOperational = true;
     Error.captureStackTrace?.(this, AppError);
   }

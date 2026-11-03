@@ -18,6 +18,13 @@ const aiDraftSchema = new mongoose.Schema(
       completionTokens: { type: Number, default: 0 },
       totalTokens: { type: Number, default: 0 },
     },
+    warnings: { type: [String], default: [] }, // e.g. an amount not found in the author's records
+    // What retrieval chose, so the admin UI can show "based on: Royalty policy".
+    context: {
+      category: { type: String, default: null },
+      sections: { type: [String], default: [] },
+      exampleId: { type: String, default: null },
+    },
   },
   { toJSON: { versionKey: false } },
 );
