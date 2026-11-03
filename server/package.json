@@ -16,7 +16,8 @@
     "docs:postman": "node scripts/export-postman.js",
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.e2e.config.js",
     "verify:seed": "node scripts/verify-seed.js",
-    "eval:ai": "node scripts/ai-eval.js"
+    "eval:ai": "node scripts/ai-eval.js",
+    "qa:degradation": "node scripts/ai-degradation.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
