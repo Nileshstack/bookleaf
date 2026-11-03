@@ -27,9 +27,10 @@ export const createApp = () => {
   app.use(requestId);
   app.use(helmet());
   app.use(cors(corsOptions));
-  // JSON only, with no urlencoded parser. A cross-site HTML form can't send
-  // application/json without a CORS preflight, which the allow-list rejects.
-  // That is the CSRF guard for cookie-authenticated requests.
+  // CSRF guard for the SameSite=None production cookie: browsers send an
+  // Origin header on cross-site POST/PATCH, and the CORS allow-list above
+  // answers 403 before any route runs (tests/csrf.test.js). JSON only, with
+  // no urlencoded parser, as a second layer for requests that carry a body.
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
