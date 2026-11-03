@@ -13,7 +13,9 @@
     "start": "node src/server.js",
     "seed": "node src/seed/seed.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "docs:postman": "node scripts/export-postman.js"
+    "docs:postman": "node scripts/export-postman.js",
+    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config jest.e2e.config.js",
+    "verify:seed": "node scripts/verify-seed.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
