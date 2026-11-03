@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Inbox, SquarePen } from "lucide-react";
 import { useAuthorLive } from "@/components/author/author-live";
@@ -47,7 +47,6 @@ export function TicketsViewSkeleton() {
 
 export function TicketsView() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const raw = searchParams.get("status");
   const status = (TICKET_STATUSES as readonly string[]).includes(raw ?? "") ? (raw as TicketStatus) : undefined;
@@ -72,7 +71,8 @@ export function TicketsView() {
     if (next === "All") params.delete("status");
     else params.set("status", next);
     const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    // No server round trip needed for a filter; useSearchParams updates at once.
+    window.history.replaceState(null, "", query ? `${pathname}?${query}` : pathname);
   };
 
   const loadMore = async () => {

@@ -36,6 +36,13 @@ const SORT_OPTIONS = [
   { value: "updated", label: "Recently updated" },
 ];
 
+/**
+ * Filters live in the URL, but changing them needs no server round trip:
+ * history.replaceState updates useSearchParams at once. With router.replace
+ * a click on a filter checkbox was undone until the navigation finished.
+ */
+const replaceUrl = (url: string) => window.history.replaceState(null, "", url);
+
 const FILTER_KEYS = ["status", "category", "priority", "assignedTo", "from", "to", "q", "overdue", "sort"] as const;
 
 function TableSkeleton() {
@@ -100,7 +107,17 @@ export function QueueView() {
   const { markQueueSeen, freshIds, unseenCount } = useAdminLiveState();
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const param = (k: string) => searchParams.get(k) ?? "";
+  // The URL is the source of truth, but Next applies replaceState inside a
+  // transition. Until it lands, read the change from here, or controlled
+  // inputs (checkboxes, selects) snap back for a moment after a click.
+  const [pendingUrl, setPendingUrl] = useState<{ base: string; next: string } | null>(null);
+  const current = searchParams.toString();
+  const params = pendingUrl?.base === current ? new URLSearchParams(pendingUrl.next) : searchParams;
+  const param = (k: string) => params.get(k) ?? "";
+  const setQuery = (qs: string) => {
+    setPendingUrl({ base: current, next: qs });
+    replaceUrl(qs ? `${pathname}?${qs}` : pathname);
+  };
   const page = Math.max(1, Number(param("page")) || 1);
   const statusOption = STATUS_OPTIONS.find((o) => o.value === param("status")) ?? STATUS_OPTIONS[0];
 
@@ -147,14 +164,13 @@ export function QueueView() {
   }, []);
 
   const setParams = (changes: Record<string, string | null>) => {
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(params);
     for (const [k, v] of Object.entries(changes)) {
       if (v) next.set(k, v);
       else next.delete(k);
     }
     if (!("page" in changes)) next.delete("page"); // any filter change starts at page 1
-    const qs = next.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    setQuery(next.toString());
   };
 
   // Debounced search box mirrored into the URL.
@@ -263,7 +279,7 @@ export function QueueView() {
               className="ml-auto"
               onClick={() => {
                 setSearch("");
-                router.replace(pathname, { scroll: false });
+                setQuery("");
               }}
             >
               <X className="size-3.5" aria-hidden /> Clear filters ({activeFilters})
@@ -284,7 +300,7 @@ export function QueueView() {
             description={activeFilters ? "Try widening the filters or clearing the search." : "New author tickets will appear here as they arrive."}
             action={
               activeFilters ? (
-                <Button variant="secondary" onClick={() => router.replace(pathname, { scroll: false })}>
+                <Button variant="secondary" onClick={() => setQuery("")}>
                   Clear filters
                 </Button>
               ) : undefined
