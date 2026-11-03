@@ -1,6 +1,6 @@
 # Architecture (draft)
 
-> Status: backend complete (auth, author + admin APIs, AI layer, SSE). The frontend is next.
+> Status: backend complete (auth, author + admin APIs, AI layer, SSE). Frontend: author portal done; admin console next.
 
 ## Overview
 
@@ -269,3 +269,49 @@ Server-Sent Events. Events catalogue, payloads, client usage and the scaling lim
   - Publishing an internal note to an author throws.
 - **Limitation**: single instance only. Horizontal scaling needs Redis pub/sub behind `publish()` / `deliverLocal()`, and Redis Streams for the replay buffer.
 
+## Frontend (`client/`)
+
+Next.js 16 App Router, Tailwind v4, `lucide-react` icons and `sonner` toasts. `cacheComponents` is on.
+
+```
+client/
+├── app/                  routes: thin server page.tsx (metadata, Suspense) + a client *-view.tsx
+│   ├── login/            sign-in with a demo-credentials panel
+│   ├── author/           dashboard, books, tickets, tickets/new, tickets/[id]
+│   └── admin/            guarded placeholder (console is the next step)
+├── components/
+│   ├── ui/               button, card, badge, field, skeleton, empty/error/loading states
+│   ├── layout/           AppShell: sidebar on desktop, top bar + menu on mobile, skip link
+│   ├── auth/             RoleGate
+│   ├── author/           AuthorFrame, AuthorLiveProvider (one SSE stream per tab)
+│   ├── books/, tickets/  domain components (production stepper, payout note, status badge, dropzone)
+└── lib/                  api.ts, auth.tsx, useSSE.ts, useResource.ts, types.ts, format.ts
+```
+
+Decisions:
+- **Data is fetched in the browser.** The session is an httpOnly cookie owned by the API's origin; in production that's a different site, so the Next server can't read it. Pages are therefore client views fetching through `lib/api.ts`.
+  - Every request sends credentials.
+  - Every failure becomes one `ApiError` shape (code, message, field details, request id), including network errors.
+  - Any 401 signs the user out everywhere.
+- **Route protection** is a client `RoleGate` in the `/author` and `/admin` layouts.
+  - It redirects anonymous users to `/login?next=…` and sends the wrong role to its own portal.
+  - The API enforces auth regardless; the gate is for UX.
+  - `next` only accepts same-area paths, so it can't be used as an open redirect.
+- **Cache Components constraints:**
+  - `useParams`, `useSearchParams` and `usePathname` (under dynamic routes) need `<Suspense>`, so layouts and URL-driven pages wrap their client views.
+  - Pages inside the gate export `instant = false`. Navigation waits on the client session check by design, and the opt-out must sit on each page segment.
+  - Visited pages are kept mounted but hidden (React Activity), so `useResource` refetches when a page is shown again, and the new-ticket form resets itself after submit.
+- **Live updates.** `useSSE` wraps `EventSource` with credentials.
+  - Handlers go through `useEffectEvent`, so re-renders never reconnect.
+  - It tracks the last event id and reopens with `?lastEventId=` (exponential backoff) when the browser gives up, and reacts to `ready.resync`.
+  - The author layout owns the single stream and toasts; pages subscribe with `useAuthorLive`. The ticket page appends replies in place, and lists refetch silently.
+- **Author-safe UI:** `lib/types.ts` has no priority, AI or internal-note fields at all, and the API never sends them to authors.
+- **Edge cases:**
+  - Books in production show a 9-stage stepper and "—" (with a screen-reader explanation) instead of zero figures.
+  - Published books get a plain-language payout note: first payout, below the ₹1,000 minimum, fully paid, or no sales yet. It includes the next quarterly payout deadline from the API.
+- **Accessibility:**
+  - Labelled fields with `aria-describedby` and `aria-invalid`; focus moves to the first invalid field.
+  - Status badges show colour plus icon plus text.
+  - The thread is a `role="log"` live region.
+  - Progress bars have ARIA values.
+  - Skip link, visible focus ring, and reduced-motion support.

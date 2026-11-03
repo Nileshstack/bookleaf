@@ -3,7 +3,7 @@
 A support portal for BookLeaf Publishing. Authors raise tickets about royalties, ISBNs, printing and distribution, and see replies live. The operations team works an AI-triaged queue and replies from AI drafts grounded in BookLeaf's knowledge base and each author's real book data.
 
 - **Backend** (`server/`): Node.js, Express 5, MongoDB/Mongoose, OpenAI `gpt-4o-mini`, Server-Sent Events
-- **Frontend** (`client/`): Next.js App Router + Tailwind *(in progress)*
+- **Frontend** (`client/`): Next.js 16 App Router + Tailwind. Author portal done (dashboard, books, tickets with live replies); admin console in progress.
 
 Further reading:
 - [ARCHITECTURE.md](ARCHITECTURE.md): structure, data model, auth, endpoints
