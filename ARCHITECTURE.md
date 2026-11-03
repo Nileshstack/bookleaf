@@ -108,11 +108,32 @@ Every error leaves the API in one shape:
 | POST | `/auth/login` | public, `authLimiter` | `{ email, password }` → `{ user, token }` + cookie |
 | POST | `/auth/logout` | public | Clears the cookie |
 | GET | `/auth/me` | any role | Current user |
-| GET | `/books` | author (own) / admin (all) | |
-| GET | `/books/:bookId` | owner / admin | Mongo id or `BK001` |
-| GET | `/tickets` | author (own, newest first) / admin (all, urgency then age) | `?status&category&priority&page&limit`; `priority` is admin-only |
-| GET | `/tickets/:ticketId` | owner / admin | Mongo id or `BL-0001`; includes the role-filtered thread |
+| GET | `/books` | author | Own books + `isPublished`, `royaltyBreakdown`, `production` |
+| GET | `/books/:bookId` | author (owner) | Mongo id or `BK001` |
+| POST | `/tickets` | author | 201 + `Location`. Per-author `ticketCreationLimiter` (20/h) |
+| GET | `/tickets` | author | Own tickets, newest first, `?status&category&page&limit`, with `lastMessage` preview + `messageCount` |
+| GET | `/tickets/stream` | author | SSE stream (stub: `ready` event + heartbeats) |
+| GET | `/tickets/:ticketId` | author (owner) | Mongo id or `BL-0001`; thread without internal notes |
+| POST | `/tickets/:ticketId/messages` | author (owner) | Follow-up; Resolved → Open; Closed → 409 `TICKET_CLOSED` |
 | GET | `/users` | admin | `?role&page&limit` |
+
+`/books` and `/tickets` are the **author portal** (admins get 403). The admin queue will get its own `/admin/...` routes, so each portal's rules and response shape stay in one place instead of branching on role inside shared handlers.
+
+### Author portal behaviour
+
+- **Book edge cases**: `services/bookInsights.js` derives everything from BookLeaf policy as pure functions, which the AI prompt builder can reuse.
+  - Books in production return `null` for MRP, royalty and publication date, never `0`. "No price yet" is not the same as "earned nothing".
+  - `payoutStatus` is one of `not_yet_published | no_earnings_yet | awaiting_first_payout | partially_paid | fully_paid`.
+  - `meetsPayoutThreshold` / `rollsOverToNextQuarter` reflect the ₹1,000 minimum payout.
+  - `nextScheduledPayout` is the next quarter-end + 45-day deadline. It's a schedule date, not a promise about a specific balance.
+  - `production` gives the pipeline stage, e.g. Cover Design, step 3 of 9.
+- **Creating a ticket**:
+  - Only `bookId`, `subject`, `description` and `attachments` are accepted. Unknown keys are stripped, so an author can't set status, priority or `authorId`.
+  - `bookId` may be missing, `null` or `""` for General / Account Level. A book that doesn't exist and another author's book both give the same 422 on `bookId`.
+  - Attachments are metadata only: at most 5 files, up to 10 MB each, images/PDF/Word/text.
+- **AI never blocks ticket creation**: the ticket is saved and the 201 sent first. `classifyTicket` then runs through `runInBackground`, and its errors are logged, never propagated. Tests prove creation still returns 201 when the AI service throws, and returns immediately when it hangs. A ticket the AI never processed stays `aiStatus: 'pending'`, so it can be recovered later.
+- **Replies**: a Resolved ticket reopens because the author is saying it isn't fixed. A Closed ticket returns 409 and tells the author to open a new ticket.
+- **List previews**: one aggregation per page (`TicketMessage.latestVisibleByTicket`) returns each ticket's latest visible message and count. It applies the same fail-closed internal-note rule as `findThread`.
 
 ## Testing
 
@@ -123,8 +144,17 @@ Every error leaves the API in one shape:
 - one author reading another's ticket or book (404, indistinguishable from missing), internal notes and triage fields hidden from authors
 - an author on an admin route (403)
 - the login rate limit
+- the ticket lifecycle: create (General or a book), mass-assignment protection, attachment rules, previews, reopen on Resolved, 409 on Closed
+- book edge cases: in production, never paid, fully paid, below threshold, no sales, plus the payout-date maths
+- AI decoupling: the triage service is mocked with `jest.unstable_mockModule` to throw and to hang
+- SSE: headers, the `ready` event, `publishToUser` delivery, and cleanup on disconnect
 
-As a sanity check that the tests can fail, removing either the ownership scope or the admin role gate makes 4 tests fail.
+To check the tests can fail, the core guarantees were broken one at a time and each break failed at least one test:
+- removing the ownership scope
+- removing the admin role gate
+- letting previews include internal notes
+- awaiting the AI call during ticket creation
+- allowing replies on Closed tickets
 
 ## Data model
 
@@ -154,10 +184,13 @@ Design choices:
 
 ## (planned) AI integration
 
-- **Classification + priority**: one JSON-mode call per new ticket. It runs *after* the ticket is saved, so an AI outage never blocks ticket creation. On failure the ticket keeps `category: "General Inquiry"` / `priority: "Medium"` and is flagged `ai.status = failed` for manual triage.
+- **Classification + priority**: one JSON-mode call per new ticket. It runs *after* the ticket is saved (wired already: `runInBackground` → `services/triage.service.js`, currently a stub), so an AI outage never blocks ticket creation. On failure the ticket keeps `category: "General Inquiry"` / `priority: "Medium"` and is flagged `ai.status = failed` for manual triage.
 - **Draft response**: generated when an admin opens a ticket. The draft is cached on the ticket so reopening it costs nothing. The admin can always edit, or write from scratch if the AI is unavailable.
 - **Cost control**: the knowledge base is split into sections, and only the section for the ticket's category plus the tone guidelines go into the prompt. The prompt also gets only the relevant book's facts (not the whole catalogue) and the latest message, not the full history. Inputs are length-capped and outputs use `max_tokens`. The model is `gpt-4o-mini`.
 
-## (planned) Real-time
+## Real-time (partially built)
 
-Server-Sent Events, because updates flow one way (server to browser) and SSE works over plain HTTP with automatic reconnect. An in-process event bus publishes ticket events to per-author and admin channels. Limitation: this works for a single API instance. Scaling out would need Redis pub/sub behind the same bus interface.
+Server-Sent Events, because updates flow one way (server to browser) and SSE works over plain HTTP with automatic reconnect. `EventSource` can't set headers, so the stream authenticates with the httpOnly cookie.
+- **Built**: `services/realtime.service.js` holds open streams per user. It sends a `retry` hint, a `ready` event and 25s heartbeat comments so proxies don't drop idle connections, and cleans up on disconnect. `publishToUser(userId, event, data)` works.
+- **(planned)**: publishing ticket events when an admin replies or changes status, plus an admin channel for new tickets.
+- **Limitation**: the hub is in-memory, so it works for a single API instance. Scaling out would need Redis pub/sub behind `publishToUser`.
