@@ -25,7 +25,7 @@ const noHorizontalScroll = async (page: import("@playwright/test").Page) => {
       .map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 60)}`);
     return { overflow: document.documentElement.scrollWidth - width, offenders };
   });
-  if (overflow > 0) console.info("overflowing elements:", offenders); // eslint-disable-line no-console
+  if (overflow > 0) console.info("overflowing elements:", offenders);
   return overflow;
 };
 
