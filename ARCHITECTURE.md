@@ -1,6 +1,6 @@
 # Architecture (draft)
 
-> Status: foundation only. Sections marked **(planned)** describe the intended design for work not yet built.
+> Status: backend complete (auth, author + admin APIs, AI layer, SSE). The frontend is next.
 
 ## Overview
 
@@ -124,6 +124,9 @@ Every error leaves the API in one shape:
 | POST | `/admin/tickets/:ticketId/notes` | admin | `{ body }` → internal note (never sent to the author) |
 | POST | `/admin/tickets/:ticketId/reply` | admin | `{ body, wasAiDrafted?, status? }` |
 | GET | `/admin/stats` | admin | Counts, open-ticket age, overdue, AI override and draft-adoption rates |
+| POST | `/admin/tickets/:ticketId/draft` | admin, `aiLimiter` | AI draft (cached); `?regenerate=true`; 503 + template if AI unavailable |
+| POST | `/admin/tickets/:ticketId/classify` | admin, `aiLimiter` | Re-run triage now (respects admin overrides) |
+| GET | `/admin/ai/usage` | admin | `?days=30`: tokens, cost, failures, cache hits, cost per ticket, breaker state |
 
 `/books` and `/tickets` are the **author portal** (admins get 403). The admin queue will get its own `/admin/...` routes, so each portal's rules and response shape stay in one place instead of branching on role inside shared handlers.
 
@@ -237,11 +240,21 @@ Design choices:
 - The seed also backfills derived ticket fields (`Ticket.syncDerivedFields()`) and syncs indexes, so it doubles as the migration step after a schema change.
 - `seedDatabase()` is exported for tests. The CLI runs only when the file is executed directly.
 
-## (planned) AI integration
+## AI integration
 
-- **Classification + priority**: one JSON-mode call per new ticket. It runs *after* the ticket is saved (wired already: `runInBackground` → `services/triage.service.js`, currently a stub), so an AI outage never blocks ticket creation. On failure the ticket keeps `category: "General Inquiry"` / `priority: "Medium"` and is flagged `ai.status = failed` for manual triage.
-- **Draft response**: generated when an admin opens a ticket. The draft is cached on the ticket so reopening it costs nothing. The admin can always edit, or write from scratch if the AI is unavailable.
-- **Cost control**: the knowledge base is split into sections, and only the section for the ticket's category plus the tone guidelines go into the prompt. The prompt also gets only the relevant book's facts (not the whole catalogue) and the latest message, not the full history. Inputs are length-capped and outputs use `max_tokens`. The model is `gpt-4o-mini`.
+Full design, cost maths and failure matrix: **[server/docs/AI_DESIGN.md](server/docs/AI_DESIGN.md)**.
+
+- **Classification**: one JSON-mode `gpt-4o-mini` call per new ticket, at temperature 0. It sees a priority rubric and only the subject, description and a small numeric account context; no knowledge base. The output is Zod-validated. The call runs in the background after the 201 and then pushes a `ticket.classified` SSE event.
+- **Graceful degradation**: if the AI is down or returns junk, a weighted-keyword classifier sets category/priority. The ticket is marked `aiStatus: failed`, `classificationSource: rules`. Admin overrides are never overwritten.
+- **Draft reply**: `POST /admin/tickets/:id/draft[?regenerate=true]`.
+  - **Prompt**: the category's 1–2 KB sections, one matching example, facts about the referenced book only (with derived payout-date and overdue lines), and the last 3 thread entries.
+  - **Cache**: drafts are cached per ticket by context hash.
+  - **Guard rails**: a ₹-amount check and sign-off enforcement.
+  - **On failure**: 503 with a category template and the last good draft.
+- **Resilience**: one client with a 15s timeout, 2 retries (exponential backoff, Retry-After) and a circuit breaker (3 failures → 60s pause). `/health` reports `ai: degraded` while the breaker is open.
+- **Cost**: about $0.0005 per ticket at list prices, measured live. Retrieval sends about 53% fewer draft input tokens than the full KB would. Every call is logged; see `GET /admin/ai/usage`.
+- **Concurrency**: classification takes an atomic lease (`aiClaimedAt`), so restarts or several instances never classify, and pay for, the same ticket twice.
+- **Source of truth**: `ai/knowledgeBase.js` also exports the policy numbers (₹1,000 threshold, 45-day window, production stages) that `services/bookInsights.js` uses, so the API and the AI can't disagree.
 
 ## Real-time (partially built)
 
