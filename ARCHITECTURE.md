@@ -1,4 +1,4 @@
-# Architecture (draft)
+# Architecture
 
 > Status: backend complete (auth, author + admin APIs, AI layer, SSE). Frontend: author and admin portals done.
 
