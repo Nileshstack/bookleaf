@@ -1,6 +1,7 @@
 import { env } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { createApp } from './app.js';
+import { closeAll as closeEventStreams } from './services/eventHub.js';
 import { recoverPendingClassifications } from './services/triage.service.js';
 import { runInBackground } from './utils/background.js';
 import { logger } from './utils/logger.js';
@@ -23,11 +24,13 @@ const start = async () => {
 
   const shutdown = (signal) => {
     logger.info('Shutting down', { signal });
+    // End SSE streams first: open connections would otherwise keep server.close() waiting.
+    closeEventStreams();
     server.close(async () => {
       await disconnectDB();
       process.exit(0);
     });
-    // Long-lived SSE connections can keep close() pending; don't hang forever.
+    // Last resort if something else holds a connection open.
     setTimeout(() => process.exit(1), 10_000).unref();
   };
 

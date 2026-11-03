@@ -9,4 +9,6 @@ process.env.OPENAI_API_KEY = '';
 // No automatic triage on ticket creation, so suites unrelated to AI see deterministic tickets.
 // AI suites opt back in or call the triage service directly.
 process.env.AI_CLASSIFY_ON_CREATE = 'false';
+// Fast heartbeats so the SSE suite can observe one without waiting 25s.
+process.env.SSE_HEARTBEAT_MS = '100';
 process.env.CLIENT_URL = 'http://localhost:3000';

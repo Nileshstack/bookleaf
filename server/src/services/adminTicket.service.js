@@ -6,7 +6,7 @@ import { pageMeta, paginate, refFilter } from './access.js';
 import { presentBook } from './book.service.js';
 import { PUBLISHED_STATUS } from './bookInsights.js';
 import { presentMessage, presentTicket } from './presenters.js';
-import { publishToRole, publishToUser } from './realtime.service.js';
+import * as events from './ticketEvents.js';
 import { overdueFilter, ticketTiming } from './ticketInsights.js';
 
 /**
@@ -230,28 +230,6 @@ const resolveAssignee = async (userId) => {
   return assignee._id;
 };
 
-/** What the author's live view needs: never priority, AI fields or notes. */
-const notifyAuthorOfUpdate = (ticket) =>
-  publishToUser(ticket.authorId, 'ticket.updated', {
-    ticketId: ticket._id,
-    ticketNumber: ticket.ticketNumber,
-    status: ticket.status,
-    category: ticket.category,
-    updatedAt: ticket.updatedAt,
-  });
-
-const notifyAdmins = (event, ticket, extra = {}) =>
-  publishToRole(ROLES.ADMIN, event, {
-    ticketId: ticket._id,
-    ticketNumber: ticket.ticketNumber,
-    status: ticket.status,
-    priority: ticket.priority,
-    category: ticket.category,
-    assignedTo: ticket.assignedTo,
-    updatedAt: ticket.updatedAt,
-    ...extra,
-  });
-
 /**
  * Admin edits. A category or priority set by an admin is recorded as
  * overridden whenever it differs from the AI's suggestion. If the AI never
@@ -261,7 +239,7 @@ const notifyAdmins = (event, ticket, extra = {}) =>
  */
 export const updateTicket = async (admin, ref, changes) => {
   const ticket = await findTicketDoc(ref);
-  const authorVisibleBefore = `${ticket.status}|${ticket.category}`;
+  const previousStatus = ticket.status;
 
   if (changes.category !== undefined) {
     ticket.category = changes.category;
@@ -278,8 +256,7 @@ export const updateTicket = async (admin, ref, changes) => {
 
   await ticket.save();
 
-  if (`${ticket.status}|${ticket.category}` !== authorVisibleBefore) notifyAuthorOfUpdate(ticket);
-  notifyAdmins('ticket.updated', ticket, { updatedBy: admin.name });
+  events.ticketUpdated(ticket, { changes: Object.keys(changes), previousStatus, actorName: admin.name });
 
   return getTicketDetail(admin, ticket._id.toString());
 };
@@ -290,7 +267,7 @@ export const assignToMe = async (admin, ref) => {
   ticket.assignedTo = admin.id;
   await ticket.save();
 
-  notifyAdmins('ticket.updated', ticket, { updatedBy: admin.name });
+  events.ticketUpdated(ticket, { changes: ['assignedTo'], actorName: admin.name });
   const detail = await getTicketDetail(admin, ticket._id.toString());
   return { ...detail, previousAssigneeId: previousAssignee };
 };
@@ -305,8 +282,9 @@ export const addInternalNote = async (admin, ref, { body }) => {
     isInternalNote: true,
   });
   // Deliberately not touching ticket.updatedAt and not notifying the author:
-  // a note is invisible to them in every respect.
-  notifyAdmins('ticket.note', ticket, { by: admin.name });
+  // a note is invisible to them in every respect. Status is unchanged, so
+  // ticketUpdated sends nothing on the author channel.
+  events.ticketUpdated(ticket, { changes: ['internalNote'], actorName: admin.name });
 
   await note.populate('senderId', 'name');
   return presentMessage(note.toObject(), admin);
@@ -337,21 +315,14 @@ export const replyToAuthor = async (admin, ref, { body, wasAiDrafted, status }) 
     wasAiDrafted,
   });
 
+  const previousStatus = ticket.status;
   ticket.status = status ?? (ticket.status === 'Open' ? 'In Progress' : ticket.status);
   if (!ticket.assignedTo) ticket.assignedTo = admin.id;
   ticket.markModified('status'); // bump updatedAt even if the status is unchanged
   await ticket.save();
 
   await message.populate('senderId', 'name');
-  const forAuthor = presentMessage(message.toObject(), { role: ROLES.AUTHOR });
-
-  publishToUser(ticket.authorId, 'ticket.message', {
-    ticketId: ticket._id,
-    ticketNumber: ticket.ticketNumber,
-    status: ticket.status,
-    message: forAuthor,
-  });
-  notifyAdmins('ticket.updated', ticket, { updatedBy: admin.name });
+  events.adminReplied(ticket, message.toObject(), { previousStatus, actorName: admin.name });
 
   return {
     message: presentMessage(message.toObject(), admin),

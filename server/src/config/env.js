@@ -38,6 +38,10 @@ const schema = z.object({
   // Comma-separated list of allowed browser origins.
   CLIENT_URL: z.string().default('http://localhost:3000'),
 
+  // Server-Sent Events: comment heartbeat interval (keeps proxies from closing idle streams) and per-user stream cap.
+  SSE_HEARTBEAT_MS: z.coerce.number().int().positive().default(25_000),
+  SSE_MAX_STREAMS_PER_USER: z.coerce.number().int().positive().default(5),
+
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
 });
@@ -72,6 +76,7 @@ export const env = Object.freeze({
     classifyOnCreate: raw.AI_CLASSIFY_ON_CREATE === 'true',
     pricePerMTok: { input: raw.AI_PRICE_INPUT_PER_MTOK, output: raw.AI_PRICE_OUTPUT_PER_MTOK },
   },
+  sse: { heartbeatMs: raw.SSE_HEARTBEAT_MS, maxStreamsPerUser: raw.SSE_MAX_STREAMS_PER_USER },
   clientUrls: raw.CLIENT_URL.split(',').map((u) => u.trim()).filter(Boolean),
   rateLimit: { windowMs: raw.RATE_LIMIT_WINDOW_MS, max: raw.RATE_LIMIT_MAX },
 });

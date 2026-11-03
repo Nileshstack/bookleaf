@@ -1,5 +1,6 @@
 import * as ticketService from '../services/ticket.service.js';
-import * as realtime from '../services/realtime.service.js';
+import { subscribe, userChannel } from '../services/eventHub.js';
+import { lastEventIdOf } from '../utils/sse.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 
 export const createTicket = async (req, res) => {
@@ -22,6 +23,7 @@ export const replyToTicket = async (req, res) => {
   sendSuccess(res, result, { statusCode: 201 });
 };
 
+/** Author stream: only this author's channel, so only events about their own tickets. */
 export const stream = (req, res) => {
-  realtime.openStream(req, res, req.user);
+  subscribe(req, res, { userId: req.user.id, channels: [userChannel(req.user.id)], lastEventId: lastEventIdOf(req) });
 };

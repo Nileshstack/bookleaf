@@ -1,11 +1,11 @@
 import { aiClient, AiOutputError, AiUnavailableError } from '../ai/index.js';
 import { classifyWithAi } from '../ai/classifier.js';
 import { classifyWithRules } from '../ai/fallbackClassifier.js';
-import { Book, ROLES, Ticket, User } from '../models/index.js';
+import { Book, Ticket, User } from '../models/index.js';
 import { AppError } from '../utils/AppError.js';
 import { logger } from '../utils/logger.js';
 import { isPublished, monthsBetween } from './bookInsights.js';
-import { publishToRole, publishToUser } from './realtime.service.js';
+import * as events from './ticketEvents.js';
 
 /**
  * Ticket triage: AI first, keyword rules if the AI is unavailable or returns
@@ -114,7 +114,6 @@ export const classifyTicket = async (ticketId, { force = false, client = aiClien
 const classifyClaimed = async (ticket, client) => {
   const now = new Date();
   const context = await buildAccountContext(ticket, now);
-  const authorVisibleBefore = ticket.category;
 
   try {
     const ai = await classifyWithAi(ticket, context.forModel, { client });
@@ -149,24 +148,9 @@ const classifyClaimed = async (ticket, client) => {
   ticket.aiClaimedAt = null;
   await ticket.save();
 
-  publishToRole(ROLES.ADMIN, 'ticket.classified', {
-    ticketId: ticket._id,
-    ticketNumber: ticket.ticketNumber,
-    category: ticket.category,
-    priority: ticket.priority,
-    aiStatus: ticket.aiStatus,
-    classificationSource: ticket.classificationSource,
-    aiReasoning: ticket.aiReasoning,
-  });
-  if (ticket.category !== authorVisibleBefore) {
-    publishToUser(ticket.authorId, 'ticket.updated', {
-      ticketId: ticket._id,
-      ticketNumber: ticket.ticketNumber,
-      status: ticket.status,
-      category: ticket.category,
-      updatedAt: ticket.updatedAt,
-    });
-  }
+  // Admins only. Triage (priority, AI reasoning) is internal; the author sees
+  // the category next time they load the ticket.
+  events.ticketClassified(ticket);
 
   return ticket;
 };

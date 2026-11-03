@@ -5,7 +5,7 @@ import { runInBackground } from '../utils/background.js';
 import { pageMeta, paginate, refFilter, scopeToOwner } from './access.js';
 import { resolveOwnedBookId } from './book.service.js';
 import { presentMessage, presentTicket } from './presenters.js';
-import { publishToRole } from './realtime.service.js';
+import * as events from './ticketEvents.js';
 import { classifyTicket } from './triage.service.js';
 
 /**
@@ -42,14 +42,7 @@ export const createTicket = async (user, { bookId, subject, description, attachm
     runInBackground('classify-ticket', () => classifyTicket(ticket._id), { ticketId: String(ticket._id) });
   }
 
-  publishToRole(ROLES.ADMIN, 'ticket.created', {
-    ticketId: ticket._id,
-    ticketNumber: ticket.ticketNumber,
-    subject: ticket.subject,
-    authorName: user.name,
-    status: ticket.status,
-    createdAt: ticket.createdAt,
-  });
+  events.ticketCreated(ticket, { authorName: user.name });
 
   await ticket.populate('bookId', BOOK_FIELDS);
   return { ...presentTicket(ticket.toObject(), user), messages: [] };
@@ -124,14 +117,7 @@ export const addAuthorReply = async (user, ref, { body }) => {
   ticket.markModified('status');
   await ticket.save();
 
-  publishToRole(ROLES.ADMIN, 'ticket.message', {
-    ticketId: ticket._id,
-    ticketNumber: ticket.ticketNumber,
-    status: ticket.status,
-    reopened,
-    senderRole: ROLES.AUTHOR,
-    preview: preview(body),
-  });
+  events.authorReplied(ticket, message, { reopened, authorName: user.name });
 
   await message.populate('senderId', 'name');
   return {

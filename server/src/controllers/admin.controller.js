@@ -3,7 +3,8 @@ import { usageSummary } from '../ai/usage.js';
 import * as adminTickets from '../services/adminTicket.service.js';
 import * as drafts from '../services/draft.service.js';
 import * as triage from '../services/triage.service.js';
-import * as realtime from '../services/realtime.service.js';
+import { ADMINS_CHANNEL, subscribe } from '../services/eventHub.js';
+import { lastEventIdOf } from '../utils/sse.js';
 import * as stats from '../services/stats.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 
@@ -52,5 +53,5 @@ export const getStats = async (_req, res) => {
 };
 
 export const stream = (req, res) => {
-  realtime.openStream(req, res, req.user);
+  subscribe(req, res, { userId: req.user.id, channels: [ADMINS_CHANNEL], lastEventId: lastEventIdOf(req) });
 };
