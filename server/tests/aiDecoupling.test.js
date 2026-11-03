@@ -4,7 +4,11 @@ import request from 'supertest';
 // Replace the AI triage service before anything imports it: first it fails
 // the way a real outage would, then it hangs forever.
 const classifyTicket = jest.fn();
-jest.unstable_mockModule('../src/services/triage.service.js', () => ({ classifyTicket }));
+jest.unstable_mockModule('../src/services/triage.service.js', () => ({
+  classifyTicket,
+  recoverPendingClassifications: jest.fn(),
+}));
+process.env.AI_CLASSIFY_ON_CREATE = 'true'; // this suite is about the on-create path
 
 const { createApp } = await import('../src/app.js');
 const { Ticket } = await import('../src/models/index.js');

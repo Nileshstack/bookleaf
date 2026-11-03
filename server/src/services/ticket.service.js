@@ -1,3 +1,4 @@
+import { env } from '../config/env.js';
 import { ROLES, Ticket, TicketMessage } from '../models/index.js';
 import { AppError } from '../utils/AppError.js';
 import { runInBackground } from '../utils/background.js';
@@ -37,7 +38,9 @@ export const createTicket = async (user, { bookId, subject, description, attachm
 
   // The ticket is already saved. Classification runs after the response, and
   // a slow, failing or rate-limited AI API cannot affect ticket creation.
-  runInBackground('classify-ticket', () => classifyTicket(ticket._id), { ticketId: String(ticket._id) });
+  if (env.ai.classifyOnCreate) {
+    runInBackground('classify-ticket', () => classifyTicket(ticket._id), { ticketId: String(ticket._id) });
+  }
 
   publishToRole(ROLES.ADMIN, 'ticket.created', {
     ticketId: ticket._id,

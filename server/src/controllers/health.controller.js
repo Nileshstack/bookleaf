@@ -1,4 +1,4 @@
-import { env } from '../config/env.js';
+import { aiClient } from '../ai/index.js';
 import { isDBConnected } from '../config/db.js';
 
 /**
@@ -17,7 +17,8 @@ export const getHealth = (_req, res) => {
       timestamp: new Date().toISOString(),
       services: {
         database: dbUp ? 'up' : 'down',
-        ai: env.openai.enabled ? 'configured' : 'disabled',
+        // "degraded" while the circuit breaker is open: AI calls are paused and fallbacks are in use.
+        ai: !aiClient.enabled ? 'disabled' : aiClient.status().circuit === 'open' ? 'degraded' : 'configured',
       },
     },
   });

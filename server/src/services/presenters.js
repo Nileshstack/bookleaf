@@ -37,6 +37,8 @@ export const presentTicket = (ticket, viewer) => {
     aiPriority: ticket.aiPriority,
     priorityOverridden: ticket.priorityOverridden,
     aiReasoning: ticket.aiReasoning,
+    aiConfidence: ticket.aiConfidence ?? null,
+    classificationSource: ticket.classificationSource ?? null,
     aiStatus: ticket.aiStatus,
     aiError: ticket.aiError,
     assignedTo: presentPerson(ticket.assignedTo),

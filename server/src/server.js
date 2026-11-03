@@ -1,6 +1,8 @@
 import { env } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { createApp } from './app.js';
+import { recoverPendingClassifications } from './services/triage.service.js';
+import { runInBackground } from './utils/background.js';
 import { logger } from './utils/logger.js';
 
 const start = async () => {
@@ -10,6 +12,14 @@ const start = async () => {
   const server = app.listen(env.port, () => {
     logger.info('API listening', { port: env.port, env: env.nodeEnv, ai: env.openai.enabled });
   });
+
+  // Tickets left 'pending' by a restart mid-classification get triaged now, off the request path.
+  if (env.ai.classifyOnCreate) {
+    runInBackground('recover-pending-classifications', async () => {
+      const count = await recoverPendingClassifications();
+      if (count) logger.info('Recovered pending classifications', { count });
+    });
+  }
 
   const shutdown = (signal) => {
     logger.info('Shutting down', { signal });

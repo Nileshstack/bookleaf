@@ -61,7 +61,16 @@ const ticketSchema = new mongoose.Schema(
     priorityOverridden: { type: Boolean, default: false },
     aiReasoning: { type: String, maxlength: 1000, default: null },
 
+    aiConfidence: { type: Number, min: 0, max: 1, default: null },
+    // Where the current triage came from: the model, or the keyword fallback
+    // when the model was unavailable. Shown to admins as "rule-based fallback".
+    classificationSource: { type: String, enum: ['ai', 'rules', null], default: null },
+
     aiStatus: { type: String, enum: AI_STATUSES, default: 'pending' },
+    // Lease taken while a process classifies this ticket. Without it,
+    // overlapping restarts or several API instances could all classify the
+    // same pending ticket and pay for it more than once.
+    aiClaimedAt: { type: Date, default: null },
     aiError: { type: String, maxlength: 500, default: null }, // why classification failed, for ops visibility
 
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
