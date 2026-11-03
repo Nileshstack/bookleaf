@@ -36,7 +36,7 @@ Dependencies point one way: `routes → controllers → services → models / ai
 
 ## Request pipeline
 
-`requestId → helmet → cors → json body (100kb) → morgan → /api/v1 router → [health] → apiLimiter → feature routes → notFound → errorHandler`
+`requestId → helmet → cors → json body (100kb) → cookieParser → morgan → /api/v1 router → [health] → apiLimiter → [auth/login, auth/logout] → authenticate → feature routes → notFound → errorHandler`
 
 - `/api/v1/health` sits before the rate limiter so uptime probes are never throttled. It returns 503 if Mongo is down. A missing OpenAI key is reported as `ai: "disabled"`, not as a failure.
 - Express 5 forwards rejected promises from async handlers to the error middleware, so there is no `asyncHandler` wrapper boilerplate.
@@ -49,8 +49,19 @@ Every error leaves the API in one shape:
 { "success": false, "error": { "code": "VALIDATION_ERROR", "message": "...", "details": [...], "requestId": "..." } }
 ```
 
+- `details` is always an array: `[{ field, message }]` for validation errors, otherwise `[]`.
 - Throw `AppError` (or its factories, such as `AppError.notFound('Ticket')`) for expected failures.
 - `errorHandler` maps Zod, Mongoose (validation, cast, duplicate key), JWT and body-parser errors to proper 4xx codes.
+- Request validation: `validate({ params, query, body })` runs Zod schemas from `validators/` and puts the parsed values on `req.validated`, which is all controllers read. A bad body gives **422** `VALIDATION_ERROR`. A bad URL (params/query) gives **400** `VALIDATION_ERROR`. Unparseable JSON gives **400** `BAD_REQUEST`.
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `BAD_REQUEST` / `VALIDATION_ERROR` | Malformed JSON; invalid path or query params |
+| 401 | `UNAUTHORIZED` / `INVALID_CREDENTIALS` | No token, bad/expired token, deleted account / wrong login |
+| 403 | `FORBIDDEN` | Authenticated, but the role isn't allowed on this route |
+| 404 | `NOT_FOUND` | Doesn't exist, **or belongs to another author** |
+| 422 | `VALIDATION_ERROR` | Well-formed body with invalid values |
+| 429 | `RATE_LIMITED` | Rate limit hit |
 - Anything unrecognised is logged with its stack and the request id, then returned as a generic `INTERNAL_ERROR`. Internals never leak in production.
 - Successes use `{ success: true, data, meta? }`.
 
@@ -66,6 +77,54 @@ Every error leaves the API in one shape:
 - CORS uses an allow-list (`CLIENT_URL`, comma-separated). Rejected origins get a JSON 403.
 - Rate limits: a global per-IP limiter, a strict `authLimiter` for login (10 failed attempts per 15 min), and an `aiLimiter` for endpoints that cost money.
 - `trust proxy` is on in production so limits key on the real client IP behind the PaaS proxy.
+
+## Authentication and access control
+
+**Login**: `POST /auth/login` checks the bcrypt hash and issues an HS256 JWT holding only `{ sub: userId, role }`.
+- The JWT is set as an `httpOnly` cookie (`bl_token`), so page scripts can't read it.
+- The cookie is `SameSite=Lax` locally. In production it is `SameSite=None; Secure`, because the client and API are on different sites.
+- The token is also returned in the body so Postman can use `Authorization: Bearer <token>`. When both are present, the header wins.
+- Wrong password and unknown email give the same 401 with the same message. Unknown emails still run a bcrypt compare, so response timing doesn't reveal which accounts exist.
+- `POST /auth/logout` is public, so a user with an expired token can still clear the cookie.
+
+**`authenticate`** guards every route except health, login and logout. It verifies the JWT with the algorithm pinned and then loads the user from the DB. That costs one indexed read per request, so deleting an account or changing a role takes effect immediately instead of when the token expires.
+
+**`authorize(...roles)`** is the role gate. For example, `/users` is admin-only and gives an author a 403.
+
+**Ownership** lives in the query, not in a check after the fetch. `scopeToOwner(user, filter)` adds `authorId: user.id` for authors, and every book and ticket read goes through it.
+- List endpoints can never return another author's rows.
+- A lookup for another author's ticket matches nothing and returns the **same 404** (same message) as a missing ticket. A 403 would confirm the id exists.
+- Middleware that fetches the record and then compares owners does the same job, but it's easy to forget on list routes and needs an extra query.
+
+**Response shaping** (`services/presenters.js`): authors never receive priority, AI suggestions or reasoning, override flags, the assignee or internal notes. Internal notes are also excluded at the query level by `TicketMessage.findThread`.
+
+**CSRF**: the API parses only `application/json`, with no urlencoded parser. Cross-site forms can't send JSON without a CORS preflight, and the origin allow-list rejects that preflight. So cookie-authenticated writes can't be forged from another site.
+
+### Endpoints so far (`/api/v1`)
+
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| GET | `/health` | public | 503 when DB is down |
+| POST | `/auth/login` | public, `authLimiter` | `{ email, password }` → `{ user, token }` + cookie |
+| POST | `/auth/logout` | public | Clears the cookie |
+| GET | `/auth/me` | any role | Current user |
+| GET | `/books` | author (own) / admin (all) | |
+| GET | `/books/:bookId` | owner / admin | Mongo id or `BK001` |
+| GET | `/tickets` | author (own, newest first) / admin (all, urgency then age) | `?status&category&priority&page&limit`; `priority` is admin-only |
+| GET | `/tickets/:ticketId` | owner / admin | Mongo id or `BL-0001`; includes the role-filtered thread |
+| GET | `/users` | admin | `?role&page&limit` |
+
+## Testing
+
+`npm test` in `server/` runs Jest + supertest against the real Express app and a throwaway **mongodb-memory-server** instance. One server is shared per run, and each test file gets its own database. `tests/setup/env.js` sets the env before any import, so tests can never touch Atlas or OpenAI. The suites cover:
+- login success, wrong password, unknown email, 422 field details and malformed JSON
+- missing, tampered, wrongly signed and expired tokens, and a token for a deleted account
+- cookie and Bearer auth, and logout
+- one author reading another's ticket or book (404, indistinguishable from missing), internal notes and triage fields hidden from authors
+- an author on an admin route (403)
+- the login rate limit
+
+As a sanity check that the tests can fail, removing either the ownership scope or the admin role gate makes 4 tests fail.
 
 ## Data model
 
