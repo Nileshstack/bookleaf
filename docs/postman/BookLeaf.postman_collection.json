@@ -1,0 +1,837 @@
+{
+  "info": {
+    "name": "BookLeaf Author Support API",
+    "description": "REST API for the BookLeaf Author Support & Communication Portal.\n\n**Authentication.** `POST /auth/login` sets an httpOnly `bl_token` cookie (used by the web app) and also returns the JWT in the body, so tools can send `Authorization: Bearer <token>`. Every endpoint except health, login and logout requires one of the two.\n\n**Roles.** Author endpoints only ever return the caller's own data. Another author's ticket or book is a `404`, indistinguishable from one that does not exist. `/admin/*` and `/users` are admin-only (`403` for authors).\n\n**Errors** always use the shape `{ success: false, error: { code, message, details[], requestId } }`. Validation failures list `details[].field`: `422` for a bad body, `400` for bad URL params or query. Some errors add machine-readable fields, such as `fallback` on `AI_UNAVAILABLE`.\n\n**Demo accounts.** `admin@bookleaf.com` / `Admin@123`; any seeded author (e.g. `ananya.reddy@email.com`) / `Author@123`.\n\nRun \"Login as admin\" or \"Login as author\" first: they store {{token}} for every other request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "ticketId",
+      "value": "BL-0005"
+    },
+    {
+      "key": "bookId",
+      "value": "BK005"
+    }
+  ],
+  "item": [
+    {
+      "name": "Start here",
+      "item": [
+        {
+          "name": "Login as admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@bookleaf.com\",\n  \"password\": \"Admin@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Sign in with email and password\n\nSets the httpOnly `bl_token` cookie and returns the user and token. Rate-limited to 10 failed attempts per 15 minutes per IP.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success) { pm.collectionVariables.set(\"token\", body.data.token); }",
+                  "pm.test(\"signed in\", () => pm.expect(body.success).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as author (Ananya)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ananya.reddy@email.com\",\n  \"password\": \"Author@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Sign in with email and password\n\nSets the httpOnly `bl_token` cookie and returns the user and token. Rate-limited to 10 failed attempts per 15 minutes per IP.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.success) { pm.collectionVariables.set(\"token\", body.data.token); }",
+                  "pm.test(\"signed in\", () => pm.expect(body.success).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health · Liveness and dependency status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Liveness and dependency status",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /auth/login · Sign in with email and password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ananya.reddy@email.com\",\n  \"password\": \"Author@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Sign in with email and password\n\nSets the httpOnly `bl_token` cookie and returns the user and token. Rate-limited to 10 failed attempts per 15 minutes per IP.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /auth/logout · Clear the session cookie",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Clear the session cookie\n\nPublic, so an expired session can still clear its cookie.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET /auth/me · The signed-in user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "The signed-in user"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Author: Books",
+      "item": [
+        {
+          "name": "GET /books · My books, with royalty breakdown and production stage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "books"
+              ]
+            },
+            "description": "My books, with royalty breakdown and production stage"
+          }
+        },
+        {
+          "name": "GET /books/{bookId} · One of my books",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/books/{{bookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "books",
+                "{{bookId}}"
+              ]
+            },
+            "description": "One of my books"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Author: Tickets",
+      "item": [
+        {
+          "name": "GET /tickets · My tickets, newest first, with last-message preview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true,
+                  "description": ""
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "disabled": true,
+                  "description": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true,
+                  "description": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true,
+                  "description": ""
+                }
+              ]
+            },
+            "description": "My tickets, newest first, with last-message preview"
+          }
+        },
+        {
+          "name": "POST /tickets · Raise a ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tickets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookId\": \"BK005\",\n  \"subject\": \"Never received any royalty\",\n  \"description\": \"My book has been live since July 2024 but I have not received a single royalty payment.\",\n  \"attachments\": [\n    {\n      \"fileName\": \"statement.pdf\",\n      \"sizeBytes\": 120000,\n      \"mimeType\": \"application/pdf\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Raise a ticket\n\nOnly these fields are accepted; anything else (status, priority, authorId...) is ignored. `bookId` must be one of the author's books, or omitted/null/\"\" for General / Account Level. The ticket is saved and returned immediately; AI classification runs afterwards in the background and never blocks creation. Limited to 20 tickets per author per hour."
+          }
+        },
+        {
+          "name": "GET /tickets/{ticketId} · One of my tickets with its conversation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "{{ticketId}}"
+              ]
+            },
+            "description": "One of my tickets with its conversation\n\nInternal notes and AI metadata are never included."
+          }
+        },
+        {
+          "name": "POST /tickets/{ticketId}/messages · Reply on my ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/{{ticketId}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "{{ticketId}}",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Any update on this?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Reply on my ticket\n\nA reply to a Resolved ticket reopens it (status → Open). Closed tickets reject replies with `409 TICKET_CLOSED`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Realtime",
+      "item": [
+        {
+          "name": "GET /tickets/stream · Live updates for my tickets (SSE)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tickets/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tickets",
+                "stream"
+              ]
+            },
+            "description": "Live updates for my tickets (SSE)\n\nAuthenticates with the cookie (EventSource `withCredentials`) or Bearer. Only the author's own ticket events."
+          }
+        },
+        {
+          "name": "GET /admin/tickets/stream · Live queue updates (SSE)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets",
+                "stream"
+              ]
+            },
+            "description": "Live queue updates (SSE)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin: Reporting",
+      "item": [
+        {
+          "name": "GET /users · List users (admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "",
+                  "disabled": true,
+                  "description": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true,
+                  "description": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true,
+                  "description": ""
+                }
+              ]
+            },
+            "description": "List users (admin)"
+          }
+        },
+        {
+          "name": "GET /admin/stats · Queue counts, open-ticket age, AI override and draft-adoption rates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "stats"
+              ]
+            },
+            "description": "Queue counts, open-ticket age, AI override and draft-adoption rates"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin: Queue",
+      "item": [
+        {
+          "name": "GET /admin/tickets · Ticket queue with filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Status filter. One value, a comma-separated list, or the parameter repeated. Allowed: Open, In Progress, Resolved, Closed."
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Category filter. One value, a comma-separated list, or the parameter repeated. Allowed: Royalty & Payments, ISBN & Metadata Issues, Printing & Quality, Distribution & Availability, Book Status & Production Updates, General Inquiry."
+                },
+                {
+                  "key": "priority",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Priority filter. One value, a comma-separated list, or the parameter repeated. Allowed: Critical, High, Medium, Low."
+                },
+                {
+                  "key": "aiStatus",
+                  "value": "",
+                  "disabled": true,
+                  "description": "AI classification state. One value, a comma-separated list, or the parameter repeated. Allowed: pending, done, failed."
+                },
+                {
+                  "key": "authorId",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Mongo id or author code (AUTH001)."
+                },
+                {
+                  "key": "assignedTo",
+                  "value": "",
+                  "disabled": true,
+                  "description": "`me`, `unassigned`, or an admin id."
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true,
+                  "description": "YYYY-MM-DD or ISO timestamp (createdAt ≥)."
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "disabled": true,
+                  "description": "YYYY-MM-DD (inclusive, whole UTC day) or ISO timestamp."
+                },
+                {
+                  "key": "overdue",
+                  "value": "",
+                  "disabled": true,
+                  "description": ""
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Literal search over subject, description, ticket number, author name/email and book title."
+                },
+                {
+                  "key": "sort",
+                  "value": "queue",
+                  "disabled": true,
+                  "description": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true,
+                  "description": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true,
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Ticket queue with filters\n\nDefault sort `queue`: unresolved first, then most urgent, then oldest. Each item includes `ageHours`, `slaHours`, `dueAt` and `isOverdue` (Critical 24h, High 48h, Medium 96h, Low 168h)."
+          }
+        },
+        {
+          "name": "GET /admin/tickets/{ticketId} · Full ticket detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets",
+                "{{ticketId}}"
+              ]
+            },
+            "description": "Full ticket detail\n\nThread including internal notes, author profile with royalty totals, the referenced book with insights, and the author's other open tickets."
+          }
+        },
+        {
+          "name": "PATCH /admin/tickets/{ticketId} · Update status, category, priority or assignee",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets/{{ticketId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets",
+                "{{ticketId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Royalty & Payments\",\n  \"priority\": \"High\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Update status, category, priority or assignee\n\nStrict body: unknown keys are a 422. A category/priority that differs from the AI suggestion is recorded as an override; the AI's original values are kept."
+          }
+        },
+        {
+          "name": "POST /admin/tickets/{ticketId}/assign-to-me · Assign the ticket to the caller",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets/{{ticketId}}/assign-to-me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets",
+                "{{ticketId}}",
+                "assign-to-me"
+              ]
+            },
+            "description": "Assign the ticket to the caller"
+          }
+        },
+        {
+          "name": "POST /admin/tickets/{ticketId}/notes · Add an internal note (never visible to the author)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets/{{ticketId}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets",
+                "{{ticketId}}",
+                "notes"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Checked with finance: payout batch failed in Q3.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Add an internal note (never visible to the author)"
+          }
+        },
+        {
+          "name": "POST /admin/tickets/{ticketId}/reply · Reply to the author",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets/{{ticketId}}/reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets",
+                "{{ticketId}}",
+                "reply"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Hi Ananya, ...\",\n  \"wasAiDrafted\": true,\n  \"status\": \"In Progress\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Reply to the author\n\nVisible to the author and pushed live. Without `status`, an Open ticket moves to In Progress; an unassigned ticket is assigned to the replier. A Closed ticket needs an explicit `status` to reopen (`409` otherwise)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin: AI",
+      "item": [
+        {
+          "name": "POST /admin/tickets/{ticketId}/draft · Get an AI draft reply (cached)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets/{{ticketId}}/draft",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets",
+                "{{ticketId}}",
+                "draft"
+              ],
+              "query": [
+                {
+                  "key": "regenerate",
+                  "value": "false",
+                  "disabled": true,
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Get an AI draft reply (cached)\n\nBuilt from the knowledge-base sections for the ticket's category, the referenced book's real data and the last 3 messages. Cached per ticket until the context changes (new message, new day, prompt/KB version); `regenerate=true` forces a new one. If the AI is unavailable, returns `503 AI_UNAVAILABLE` with a category template and the last good draft."
+          }
+        },
+        {
+          "name": "POST /admin/tickets/{ticketId}/classify · Re-run AI classification now",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tickets/{{ticketId}}/classify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "tickets",
+                "{{ticketId}}",
+                "classify"
+              ]
+            },
+            "description": "Re-run AI classification now\n\nFalls back to keyword rules if the AI is unavailable. Never overwrites an admin override. `409` if a classification is already running."
+          }
+        },
+        {
+          "name": "GET /admin/ai/usage · AI usage, cost and reliability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/ai/usage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "ai",
+                "usage"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "disabled": true,
+                  "description": ""
+                }
+              ]
+            },
+            "description": "AI usage, cost and reliability"
+          }
+        }
+      ]
+    }
+  ]
+}

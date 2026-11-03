@@ -42,6 +42,10 @@ const schema = z.object({
   SSE_HEARTBEAT_MS: z.coerce.number().int().positive().default(25_000),
   SSE_MAX_STREAMS_PER_USER: z.coerce.number().int().positive().default(5),
 
+  // Proxy hops in front of the app: 1 on Render, 2 if the frontend also proxies
+  // API calls through Vercel rewrites. 0 locally.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).optional(),
+
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
 });
@@ -76,6 +80,7 @@ export const env = Object.freeze({
     classifyOnCreate: raw.AI_CLASSIFY_ON_CREATE === 'true',
     pricePerMTok: { input: raw.AI_PRICE_INPUT_PER_MTOK, output: raw.AI_PRICE_OUTPUT_PER_MTOK },
   },
+  trustProxyHops: raw.TRUST_PROXY_HOPS ?? (raw.NODE_ENV === 'production' ? 1 : 0),
   sse: { heartbeatMs: raw.SSE_HEARTBEAT_MS, maxStreamsPerUser: raw.SSE_MAX_STREAMS_PER_USER },
   clientUrls: raw.CLIENT_URL.split(',').map((u) => u.trim()).filter(Boolean),
   rateLimit: { windowMs: raw.RATE_LIMIT_WINDOW_MS, max: raw.RATE_LIMIT_MAX },

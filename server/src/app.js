@@ -3,6 +3,8 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
+import { openApiSpec } from './docs/openapi.js';
 import { env } from './config/env.js';
 import { corsOptions } from './config/cors.js';
 import { requestId } from './middleware/requestId.js';
@@ -17,9 +19,10 @@ export const createApp = () => {
   const app = express();
 
   app.disable('x-powered-by');
-  // Behind Render/Railway's proxy: trust one hop so rate limiting keys on
-  // the real client IP instead of the proxy's.
-  if (env.isProd) app.set('trust proxy', 1);
+  // Behind Render's load balancer (1 hop), or Vercel's rewrite proxy plus
+  // Render (2 hops): trust exactly that many, so rate limits key on the real
+  // client IP instead of a proxy's shared IP.
+  if (env.trustProxyHops > 0) app.set('trust proxy', env.trustProxyHops);
 
   app.use(requestId);
   app.use(helmet());
@@ -31,6 +34,10 @@ export const createApp = () => {
   app.use(cookieParser());
 
   if (!env.isTest) app.use(morgan(env.isProd ? 'combined' : 'dev'));
+
+  // Interactive API docs and the raw spec. Public and read-only.
+  app.get('/api/docs/openapi.json', (_req, res) => res.json(openApiSpec));
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec, { customSiteTitle: 'BookLeaf API docs' }));
 
   app.use('/api/v1', apiRoutes);
 
