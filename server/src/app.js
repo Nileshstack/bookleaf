@@ -1,4 +1,5 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -23,8 +24,11 @@ export const createApp = () => {
   app.use(requestId);
   app.use(helmet());
   app.use(cors(corsOptions));
+  // JSON only, with no urlencoded parser. A cross-site HTML form can't send
+  // application/json without a CORS preflight, which the allow-list rejects.
+  // That is the CSRF guard for cookie-authenticated requests.
   app.use(express.json({ limit: '100kb' }));
-  app.use(express.urlencoded({ extended: false }));
+  app.use(cookieParser());
 
   if (!env.isTest) app.use(morgan(env.isProd ? 'combined' : 'dev'));
 

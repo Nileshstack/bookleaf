@@ -1,8 +1,13 @@
+import { env } from '../config/env.js';
+
 /**
  * Minimal structured logger. Kept dependency-free for now; the interface
  * (info/warn/error with a context object) makes swapping in pino trivial.
  */
 const write = (level, message, context = {}) => {
+  // Tests deliberately trigger 4xx responses; only real errors are worth printing there.
+  if (env.isTest && level !== 'error') return;
+
   const entry = { level, time: new Date().toISOString(), message, ...context };
   const line = JSON.stringify(entry);
   if (level === 'error') console.error(line);
