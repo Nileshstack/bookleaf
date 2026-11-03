@@ -48,7 +48,7 @@ export function useSSE(url: string, handlers: Handlers, { enabled = true, onResy
     };
 
     const connect = () => {
-      const target = new URL(url);
+      const target = new URL(url, window.location.origin); // url may be relative in proxy mode
       if (lastEventIdRef.current) target.searchParams.set("lastEventId", lastEventIdRef.current);
       source = new EventSource(target.toString(), { withCredentials: true });
       setStatus(attempt === 0 ? "connecting" : "reconnecting");

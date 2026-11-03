@@ -89,7 +89,8 @@ interface RequestOptions {
 }
 
 const buildUrl = (path: string, query?: Query) => {
-  const url = new URL(`${API_URL}${path}`);
+  // API_URL may be relative ("/api/v1") when the app proxies the API on its own origin.
+  const url = new URL(`${API_URL}${path}`, typeof window === "undefined" ? "http://localhost" : window.location.origin);
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
   }

@@ -1,0 +1,38 @@
+# Render Blueprint for the BookLeaf API (Express + MongoDB Atlas).
+# Render dashboard → New → Blueprint → pick this repo. Secrets marked
+# `sync: false` are prompted for on first deploy and never stored in git.
+# Full walkthrough: DEPLOYMENT.md
+services:
+  - type: web
+    name: bookleaf-api
+    runtime: node
+    rootDir: server
+    plan: free
+    region: singapore # closest Render region to India; change if needed
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: MONGODB_URI # Atlas connection string (mongodb+srv://…/bookleaf)
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true # Render generates a strong random secret
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: OPENAI_API_KEY # optional; without it the app uses rule-based triage and reply templates
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: CLIENT_URL # your Vercel URL(s), comma-separated, no trailing slash
+        sync: false
+      # 1 = Render's load balancer only (browser calls Render directly).
+      # 2 = Vercel rewrite proxy + Render (recommended same-origin mode).
+      - key: TRUST_PROXY_HOPS
+        value: "2"
+      - key: AI_CLASSIFY_ON_CREATE
+        value: "true"
