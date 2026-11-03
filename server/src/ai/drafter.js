@@ -15,11 +15,27 @@ const AMOUNT = /₹\s?(\d[\d,]*(?:\.\d+)?)/g;
 
 const amountsIn = (text = '') => [...String(text).matchAll(AMOUNT)].map((m) => Number(m[1].replace(/,/g, '')));
 
+const MONTHS = 'January|February|March|April|May|June|July|August|September|October|November|December';
+const DAY_MONTH_YEAR = new RegExp(String.raw`\b(\d{1,2})(?:st|nd|rd|th)? (${MONTHS}),? (\d{4})\b`, 'g');
+const MONTH_DAY_YEAR = new RegExp(String.raw`\b(${MONTHS}) (\d{1,2})(?:st|nd|rd|th)?,? (\d{4})\b`, 'g');
+const ISO_DATE = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
+
+/** Full calendar dates ("14 November 2026", "November 14, 2026", "2026-11-14"), normalised to "2026-November-14". */
+export const datesIn = (text = '') => [
+  ...[...String(text).matchAll(ISO_DATE)].map(([, y, m, d]) => `${y}-${MONTHS.split('|')[Number(m) - 1]}-${Number(d)}`),
+  ...[...String(text).matchAll(DAY_MONTH_YEAR)].map(([, d, m, y]) => `${y}-${m}-${Number(d)}`),
+  ...[...String(text).matchAll(MONTH_DAY_YEAR)].map(([, m, d, y]) => `${y}-${m}-${Number(d)}`),
+];
+const displayDate = (key) => {
+  const [y, m, d] = key.split('-');
+  return `${d} ${m} ${y}`;
+};
+
 /**
  * Guard rails on the model's text. Nothing is rewritten silently except the
  * sign-off; anything doubtful becomes a warning for the reviewing admin.
  */
-export const postProcessDraft = (raw, { allowedAmounts, finishReason }) => {
+export const postProcessDraft = (raw, { allowedAmounts, allowedDates, finishReason }) => {
   let text = String(raw ?? '').trim().replace(/^#+\s.*$/gm, '').trim(); // drop stray markdown headings
   if (!text) throw new AiOutputError('Draft was empty');
 
@@ -35,6 +51,15 @@ export const postProcessDraft = (raw, { allowedAmounts, finishReason }) => {
     warnings.push(
       `Mentions ${unknown.map((n) => `₹${n.toLocaleString('en-IN')}`).join(', ')}, which is not in this author's records. Verify before sending.`,
     );
+  }
+
+  // Same for full dates: every one must appear in the prompt. Skipped when the caller has no date list.
+  if (allowedDates) {
+    const known = new Set(allowedDates);
+    const unknownDates = [...new Set(datesIn(text).filter((d) => !known.has(d)))];
+    if (unknownDates.length) {
+      warnings.push(`Mentions ${unknownDates.map(displayDate).join(', ')}, which is not in this ticket's facts. Verify before sending.`);
+    }
   }
 
   return { text, warnings };
@@ -80,6 +105,7 @@ export const generateDraft = async ({ ticket, book, author, authorBooks = [], me
   const conversationAmounts = [ticket.subject, ticket.description, ...messages.map((m) => m.body)].flatMap(amountsIn);
   const { text, warnings } = postProcessDraft(response.content, {
     allowedAmounts: [...facts.amounts, ...conversationAmounts, 1000],
+    allowedDates: datesIn(userMessage),
     finishReason: response.finishReason,
   });
 

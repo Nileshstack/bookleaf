@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { generateDraft, postProcessDraft } from '../../src/ai/drafter.js';
+import { datesIn, generateDraft, postProcessDraft } from '../../src/ai/drafter.js';
 import { AiOutputError } from '../../src/ai/errors.js';
 import { fallbackTemplate } from '../../src/ai/templates.js';
 
@@ -96,6 +96,21 @@ describe('postProcessDraft guard rails', () => {
     const { warnings } = postProcessDraft('You will receive ₹3,000 and ₹2,546.\n\nWarm regards,\nTeam BookLeaf', { allowedAmounts: [2546] });
     expect(warnings).toEqual([expect.stringContaining('₹3,000')]);
     expect(warnings[0]).not.toContain('2,546');
+  });
+
+  // Regression (QA): a no-book draft promised payout by "November 30, 2026", a date in no fact.
+  test('flags full dates that are not in the prompt, in any format', () => {
+    const allowedDates = datesIn('Next scheduled payout deadline: 14 November 2026\nTODAY: 2026-11-03');
+    const ok = postProcessDraft('Payout by November 14, 2026 (as of 3rd November 2026).', { allowedAmounts: [], allowedDates });
+    expect(ok.warnings).toEqual([]);
+    const bad = postProcessDraft('Payout by November 30, 2026.', { allowedAmounts: [], allowedDates });
+    expect(bad.warnings).toEqual([expect.stringContaining('30 November 2026')]);
+  });
+
+  test('a real draft call checks dates against its own prompt', async () => {
+    const client = fakeClient('Hi Ananya,\n\nWe will pay you by 30 November 2026.\n\nWarm regards,\nTeam BookLeaf');
+    const draft = await generateDraft({ ticket, book: null, author, authorBooks: [book], messages: [], now: NOW }, { client });
+    expect(draft.warnings).toEqual([expect.stringContaining('30 November 2026')]);
   });
 
   test('warns when the draft was cut off, and rejects empty output', () => {
