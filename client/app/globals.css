@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * BookLeaf design tokens. Calm publishing palette: deep teal brand on warm
+ * paper, an ink text colour, and muted semantic colours that pass WCAG AA
+ * on the paper and white backgrounds.
+ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-paper: #faf7f2;
+  --color-paper-2: #f3eee5;
+  --color-surface: #ffffff;
+  --color-line: #e7e0d4;
+  --color-line-strong: #d6ccbb;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --color-ink: #1c2a33;
+  --color-ink-2: #3e4c56;
+  --color-muted: #66737d;
+
+  --color-brand-50: #eef6f6;
+  --color-brand-100: #d5e9ea;
+  --color-brand-200: #acd3d5;
+  --color-brand-300: #78b4b8;
+  --color-brand-400: #4a9197;
+  --color-brand-500: #2d757c;
+  --color-brand-600: #1f6068;
+  --color-brand-700: #184e55;
+  --color-brand-800: #133f45;
+  --color-brand-900: #0e3036;
+
+  --color-success-50: #ecf6ef;
+  --color-success-600: #2f7a4a;
+  --color-success-700: #24603a;
+  --color-warning-50: #fbf3e2;
+  --color-warning-600: #9a6512;
+  --color-warning-700: #7c500c;
+  --color-danger-50: #fbeceb;
+  --color-danger-600: #b4372f;
+  --color-danger-700: #922a23;
+  --color-info-50: #ecf2fb;
+  --color-info-600: #2f5f9e;
+
+  --radius-card: 1rem;
+  --shadow-card: 0 1px 2px rgb(28 42 51 / 0.04), 0 4px 16px -4px rgb(28 42 51 / 0.08);
+  --shadow-pop: 0 10px 30px -10px rgb(28 42 51 / 0.25);
+
+  --animate-fade-in: fade-in 180ms ease-out;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-brand-100);
+  }
+
+  /* One visible, consistent focus style for keyboard users. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
