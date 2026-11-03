@@ -27,7 +27,7 @@ server/src/
 ├── middleware/   requestId, auth/RBAC, rate limiting, error handling.
 ├── ai/           Prompts, knowledge base, OpenAI client. The only code that talks to the LLM.
 ├── utils/        AppError, logger, response helpers.
-├── seed/         Sample dataset + seed script.
+├── seed/         data.json (provided dataset), demo tickets, idempotent seed script.
 ├── app.js        Builds the Express app (no port binding, so it is importable in tests).
 └── server.js     Boot: validate env → connect DB → listen → graceful shutdown.
 ```
@@ -67,12 +67,31 @@ Every error leaves the API in one shape:
 - Rate limits: a global per-IP limiter, a strict `authLimiter` for login (10 failed attempts per 15 min), and an `aiLimiter` for endpoints that cost money.
 - `trust proxy` is on in production so limits key on the real client IP behind the PaaS proxy.
 
-## (planned) Data model
+## Data model
 
-- **User**: `email`, `passwordHash`, `role: author | admin`, `authorId` (for authors).
-- **Author / Book**: seeded from `seed/data/bookleaf_sample_data.json`, keeping the natural ids (`AUTH001`, `BK001`). Nullable fields stay null; in-production books have no MRP or royalty.
-- **Ticket**: `author`, `book` (optional, for "General / Account Level"), `subject`, `description`, `status`, `category` and `priority`, each with an `aiSuggested` value and an `overriddenBy` admin field, `assignee`, and `ai` metadata (model, latency, failure reason).
-- **Message**: one thread per ticket, typed `author_message | admin_response | internal_note`. Internal notes are filtered out server-side for authors.
+Defined in `server/src/models/`. Shared enums (statuses, categories, priorities) live in `models/enums.js`, so validators and AI prompts can only use values the schema accepts.
+
+| Collection | Purpose | Key points |
+|---|---|---|
+| `users` | Authors and admins in one collection, split by `role` | `email` unique (lowercased). `passwordHash` is `select: false` and stripped from JSON. `authorCode` (`AUTH001`) links back to the source data. |
+| `books` | Catalogue, one doc per book | `authorId → users`, natural `bookId` (`BK001`) and `isbn` unique. In-production books keep `mrp`, `royaltyPerCopy`, `publicationDate` and `printPartner` as `null`. Money is whole rupees. |
+| `tickets` | Support queries | `ticketNumber` `BL-0001` comes from an atomic `counters` sequence. `bookId: null` means "General / Account Level". Final `category`/`priority` sit next to `aiCategory`/`aiPriority` + `*Overridden` flags (audit trail and an AI accuracy signal). `aiStatus` is `pending/done/failed`, with `aiError`. Attachments are metadata only. |
+| `ticketmessages` | Thread after the original query | `senderRole`, `isInternalNote`, `wasAiDrafted`. A validation hook stops authors from posting notes. |
+| `aidrafts` | One cached AI draft per ticket | `contextHash` fingerprints the inputs, so a draft is reused until the ticket changes. Also stores `model` and `tokenUsage` for cost tracking. |
+| `counters` | Named sequences | `$inc` in one atomic op; no "count + 1" race. |
+
+Design choices:
+- **Urgency sorting**: priority labels don't sort meaningfully, so each ticket stores a derived `priorityRank` (Critical 0 … Low 3). Hooks keep it in sync on `save()` and on query updates. The queue index is `{ status, priorityRank, createdAt }`, which gives "most urgent, then oldest" straight from the index. Unclassified tickets rank with Medium.
+- **Internal notes fail closed**: threads are read through `TicketMessage.findThread(ticketId, { viewerRole })`. The role is mandatory, and non-admins get `isInternalNote: false` applied in the query itself. Calling it without a role throws instead of leaking notes.
+- **Other indexes**: `{ authorId, createdAt }` (My Tickets), `{ category, createdAt }`, `{ assignedTo, status }`, `{ aiStatus, createdAt }` (retry failed classifications), `{ ticketId, createdAt }` on messages.
+
+## Seeding
+
+`npm run seed` (in `server/`) is idempotent and never drops collections:
+- Users are upserted by email and books by `bookId`, straight from `seed/data.json` (the provided dataset, unchanged). Demo passwords are reset on every run so the documented credentials always work.
+- Seven demo tickets (`seed/sampleTickets.js`) are upserted by fixed numbers `BL-0001..BL-0007`, and their threads are rebuilt. They cover every category and status and are grounded in real seeded data, for example Ananya's ₹2,546 that was never paid and Sneha's book stuck in cover design. They are seeded as hand-triaged (`category`/`priority` set) with `aiStatus: 'pending'`.
+- The ticket counter is raised to at least 7, so app-created tickets continue from `BL-0008`.
+- The seed checks the dataset's royalty arithmetic (copies × rate = earned; earned − paid = pending) and warns on mismatches. The provided data passes.
 
 ## (planned) AI integration
 
