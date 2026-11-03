@@ -22,6 +22,19 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().optional().default(''),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
 
+  // Resilience. Worst case per call: (retries + 1) × timeout plus backoff.
+  AI_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
+  AI_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
+  AI_BREAKER_THRESHOLD: z.coerce.number().int().positive().default(3),
+  AI_BREAKER_COOLDOWN_MS: z.coerce.number().int().positive().default(60_000),
+  // Kill switch for automatic triage on ticket creation. When false, new tickets stay aiStatus 'pending'
+  // until an admin runs POST /admin/tickets/:id/classify. The test suite sets it false so suites unrelated
+  // to AI see deterministic tickets.
+  AI_CLASSIFY_ON_CREATE: z.enum(['true', 'false']).default('true'),
+  // USD per 1M tokens, for cost estimates in usage logs. Defaults are gpt-4o-mini list prices; verify on openai.com/pricing.
+  AI_PRICE_INPUT_PER_MTOK: z.coerce.number().min(0).default(0.15),
+  AI_PRICE_OUTPUT_PER_MTOK: z.coerce.number().min(0).default(0.6),
+
   // Comma-separated list of allowed browser origins.
   CLIENT_URL: z.string().default('http://localhost:3000'),
 
@@ -50,6 +63,14 @@ export const env = Object.freeze({
     apiKey: raw.OPENAI_API_KEY,
     model: raw.OPENAI_MODEL,
     enabled: raw.OPENAI_API_KEY.length > 0,
+  },
+  ai: {
+    timeoutMs: raw.AI_TIMEOUT_MS,
+    maxRetries: raw.AI_MAX_RETRIES,
+    breakerThreshold: raw.AI_BREAKER_THRESHOLD,
+    breakerCooldownMs: raw.AI_BREAKER_COOLDOWN_MS,
+    classifyOnCreate: raw.AI_CLASSIFY_ON_CREATE === 'true',
+    pricePerMTok: { input: raw.AI_PRICE_INPUT_PER_MTOK, output: raw.AI_PRICE_OUTPUT_PER_MTOK },
   },
   clientUrls: raw.CLIENT_URL.split(',').map((u) => u.trim()).filter(Boolean),
   rateLimit: { windowMs: raw.RATE_LIMIT_WINDOW_MS, max: raw.RATE_LIMIT_MAX },
