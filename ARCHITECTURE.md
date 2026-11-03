@@ -116,6 +116,14 @@ Every error leaves the API in one shape:
 | GET | `/tickets/:ticketId` | author (owner) | Mongo id or `BL-0001`; thread without internal notes |
 | POST | `/tickets/:ticketId/messages` | author (owner) | Follow-up; Resolved → Open; Closed → 409 `TICKET_CLOSED` |
 | GET | `/users` | admin | `?role&page&limit` |
+| GET | `/admin/tickets` | admin | Queue with filters, search, sort and pagination; see below |
+| GET | `/admin/tickets/stream` | admin | SSE: `ticket.created`, `ticket.message`, `ticket.updated`, `ticket.note` |
+| GET | `/admin/tickets/:ticketId` | admin | Full detail: thread incl. internal notes, author profile, book insights, other open tickets |
+| PATCH | `/admin/tickets/:ticketId` | admin | `{ status?, category?, priority?, assignedTo? }`; strict: unknown keys give 422 |
+| POST | `/admin/tickets/:ticketId/assign-to-me` | admin | Idempotent; returns `previousAssigneeId` |
+| POST | `/admin/tickets/:ticketId/notes` | admin | `{ body }` → internal note (never sent to the author) |
+| POST | `/admin/tickets/:ticketId/reply` | admin | `{ body, wasAiDrafted?, status? }` |
+| GET | `/admin/stats` | admin | Counts, open-ticket age, overdue, AI override and draft-adoption rates |
 
 `/books` and `/tickets` are the **author portal** (admins get 403). The admin queue will get its own `/admin/...` routes, so each portal's rules and response shape stay in one place instead of branching on role inside shared handlers.
 
@@ -134,6 +142,42 @@ Every error leaves the API in one shape:
 - **AI never blocks ticket creation**: the ticket is saved and the 201 sent first. `classifyTicket` then runs through `runInBackground`, and its errors are logged, never propagated. Tests prove creation still returns 201 when the AI service throws, and returns immediately when it hangs. A ticket the AI never processed stays `aiStatus: 'pending'`, so it can be recovered later.
 - **Replies**: a Resolved ticket reopens because the author is saying it isn't fixed. A Closed ticket returns 409 and tells the author to open a new ticket.
 - **List previews**: one aggregation per page (`TicketMessage.latestVisibleByTicket`) returns each ticket's latest visible message and count. It applies the same fail-closed internal-note rule as `findThread`.
+
+### Admin portal behaviour
+
+**Queue (`GET /admin/tickets`)**
+- **Default sort `queue`**: unresolved (Open / In Progress) first, then most urgent, then oldest; Resolved and Closed come last. It is served by the index `{ isUnresolved: -1, priorityRank: 1, createdAt: 1 }`. Other sorts: `newest`, `oldest`, `updated`. `_id` breaks ties so pages are stable.
+- **Filters**:
+  - `status`, `category`, `priority` and `aiStatus` take one value, a comma list, or a repeated param.
+  - `authorId` takes a Mongo id or `AUTH001`.
+  - `assignedTo` takes `me`, `unassigned` or an admin id.
+  - `from` / `to` take `YYYY-MM-DD` (a date-only `to` covers the whole UTC day) or ISO timestamps.
+  - `overdue=true|false`.
+  - `q` is a literal, case-insensitive search over subject, description, ticket number, author name/email and book title. It is regex-escaped.
+  - Invalid values give 400, naming the field, e.g. `priority.1` for the second item in a list.
+- **Computed per item**:
+  - `ageHours`, `slaHours`, `dueAt` and `isOverdue`. `isOverdue` means unresolved and older than the response target: Critical 24h, High 48h (both from the brief), Medium 96h, Low 168h. Unclassified tickets use Medium's target.
+  - `lastMessage`: the team view, including notes.
+  - `awaitingTeamResponse`: nobody has replied yet, or the author spoke last.
+  - The overdue rule exists in two forms: `ticketTiming()` in JS and `overdueFilter()` as a Mongo query. Filtering and stats use the database instead of loading tickets.
+
+**AI overrides (`PATCH`)**
+- `categoryOverridden` / `priorityOverridden` are true when the admin's value differs from the AI's suggestion. Setting it back to the AI's value clears the flag.
+- If the AI never made a suggestion, an admin-set value is still flagged. That marks it as a human decision a late AI result must not overwrite.
+- `aiCategory` and `aiPriority` are never modified by admins, so accuracy can be measured later.
+- `/admin/stats` reports the override rate only over tickets the AI actually classified. Manual triage after an AI outage therefore doesn't count as the AI being wrong.
+
+**Reply defaults**
+- Without an explicit `status`, replying to an Open ticket moves it to In Progress.
+- An unassigned ticket is assigned to the replying admin.
+- A Closed ticket returns 409 unless the reply includes a `status` that reopens it.
+- `wasAiDrafted` is recorded per reply, and stats report the draft adoption rate.
+
+**Stats**
+- `byStatus`, `byCategory` and `byPriority` include every key, with `Unclassified` for null.
+- `unresolved` has `{ count, averageAgeHours, overdue, unassigned }`.
+- `ai` has the classification status counts, category/priority override rates and draft adoption.
+- Everything comes from one `$facet` aggregation plus one over messages.
 
 ## Testing
 
@@ -155,6 +199,14 @@ To check the tests can fail, the core guarantees were broken one at a time and e
 - letting previews include internal notes
 - awaiting the AI call during ticket creation
 - allowing replies on Closed tickets
+- dropping "unresolved first" from the queue sort
+- always flagging admin edits as overrides
+- removing `overwriteImmutable` from the seed
+
+Admin suites:
+- `adminTickets`: a fixed 9-ticket dataset with known ages and priorities asserts the exact queue order, every filter and combination, the 400 validation of each filter, the SLA/overdue maths, full detail, override tracking, assignment, notes, replies and stats.
+- `sse`: live delivery of admin events to authors, with internal notes absent.
+- `seed`: the dataset is seeded exactly, and a re-run after simulated drift restores counts, statuses, passwords and ticket ages.
 
 ## Data model
 
@@ -170,7 +222,7 @@ Defined in `server/src/models/`. Shared enums (statuses, categories, priorities)
 | `counters` | Named sequences | `$inc` in one atomic op; no "count + 1" race. |
 
 Design choices:
-- **Urgency sorting**: priority labels don't sort meaningfully, so each ticket stores a derived `priorityRank` (Critical 0 … Low 3). Hooks keep it in sync on `save()` and on query updates. The queue index is `{ status, priorityRank, createdAt }`, which gives "most urgent, then oldest" straight from the index. Unclassified tickets rank with Medium.
+- **Urgency sorting**: priority labels don't sort meaningfully, so each ticket stores two derived fields: `priorityRank` (Critical 0 … Low 3) and `isUnresolved` (status is Open / In Progress). Hooks keep both in sync on `save()` and on query updates. `Ticket.syncDerivedFields()`, run by the seed, backfills older documents. The queue index `{ isUnresolved: -1, priorityRank: 1, createdAt: 1 }` serves "unresolved first, most urgent, then oldest" straight from the index. `{ status, priorityRank, createdAt }` serves the same order when the queue is filtered by status. Unclassified tickets rank with Medium.
 - **Internal notes fail closed**: threads are read through `TicketMessage.findThread(ticketId, { viewerRole })`. The role is mandatory, and non-admins get `isInternalNote: false` applied in the query itself. Calling it without a role throws instead of leaking notes.
 - **Other indexes**: `{ authorId, createdAt }` (My Tickets), `{ category, createdAt }`, `{ assignedTo, status }`, `{ aiStatus, createdAt }` (retry failed classifications), `{ ticketId, createdAt }` on messages.
 
@@ -181,6 +233,9 @@ Design choices:
 - Seven demo tickets (`seed/sampleTickets.js`) are upserted by fixed numbers `BL-0001..BL-0007`, and their threads are rebuilt. They cover every category and status and are grounded in real seeded data, for example Ananya's ₹2,546 that was never paid and Sneha's book stuck in cover design. They are seeded as hand-triaged (`category`/`priority` set) with `aiStatus: 'pending'`.
 - The ticket counter is raised to at least 7, so app-created tickets continue from `BL-0008`.
 - The seed checks the dataset's royalty arithmetic (copies × rate = earned; earned − paid = pending) and warns on mismatches. The provided data passes.
+- Ticket ages are relative to the time of the run, so the demo queue always looks current. They are chosen to show a realistic mix: Ananya's Critical (72h) and Vikram's High (120h) are overdue, and the others are within target. Re-running resets ages too: `overwriteImmutable` is needed because Mongoose otherwise drops `createdAt` from updates. Without it, earlier versions silently kept the first run's dates, and `tests/seed.test.js` now guards against that.
+- The seed also backfills derived ticket fields (`Ticket.syncDerivedFields()`) and syncs indexes, so it doubles as the migration step after a schema change.
+- `seedDatabase()` is exported for tests. The CLI runs only when the file is executed directly.
 
 ## (planned) AI integration
 
@@ -191,6 +246,9 @@ Design choices:
 ## Real-time (partially built)
 
 Server-Sent Events, because updates flow one way (server to browser) and SSE works over plain HTTP with automatic reconnect. `EventSource` can't set headers, so the stream authenticates with the httpOnly cookie.
-- **Built**: `services/realtime.service.js` holds open streams per user. It sends a `retry` hint, a `ready` event and 25s heartbeat comments so proxies don't drop idle connections, and cleans up on disconnect. `publishToUser(userId, event, data)` works.
-- **(planned)**: publishing ticket events when an admin replies or changes status, plus an admin channel for new tickets.
-- **Limitation**: the hub is in-memory, so it works for a single API instance. Scaling out would need Redis pub/sub behind `publishToUser`.
+- **Hub**: `services/realtime.service.js` holds open streams per user, tagged with role. It sends a `retry` hint, a `ready` event and 25s heartbeat comments so proxies don't drop idle connections, and cleans up on disconnect. Events go out through `publishToUser(userId, …)` and `publishToRole('admin', …)`.
+- **Events wired**:
+  - Author stream (`/tickets/stream`): `ticket.message` on an admin reply, carrying the author-view message, and `ticket.updated` when the status or category changes.
+  - Admin stream (`/admin/tickets/stream`): `ticket.created`, `ticket.message` (author follow-up), `ticket.updated` and `ticket.note`.
+- **Payloads are shaped per audience**: the author stream never carries priority, AI fields, `wasAiDrafted` or notes. A test asserts this on a live stream.
+- **Limitation**: the hub is in-memory, so it works for a single API instance. Scaling out would need Redis pub/sub behind the two publish functions.
