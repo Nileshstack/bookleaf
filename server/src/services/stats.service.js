@@ -32,6 +32,9 @@ export const getStats = async () => {
         byStatus: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
         byCategory: [{ $group: { _id: '$category', count: { $sum: 1 } } }],
         byPriority: [{ $group: { _id: '$priority', count: { $sum: 1 } } }],
+        // The open queue's composition, which is what an ops dashboard charts.
+        openByCategory: [{ $match: { isUnresolved: true } }, { $group: { _id: '$category', count: { $sum: 1 } } }],
+        openByPriority: [{ $match: { isUnresolved: true } }, { $group: { _id: '$priority', count: { $sum: 1 } } }],
         unresolved: [
           { $match: { isUnresolved: true } },
           {
@@ -86,6 +89,8 @@ export const getStats = async () => {
       averageAgeHours: unresolved ? Math.round((unresolved.averageAgeMs / HOUR_MS) * 10) / 10 : null,
       overdue: facets.overdue[0]?.count ?? 0,
       unassigned: unresolved?.unassigned ?? 0,
+      byCategory: toCounts(facets.openByCategory, [...TICKET_CATEGORIES, UNCLASSIFIED]),
+      byPriority: toCounts(facets.openByPriority, [...TICKET_PRIORITIES, UNCLASSIFIED]),
     },
     ai: {
       classification: { pending: ai.pending ?? 0, failed: ai.failed ?? 0, done: ai.done ?? 0 },

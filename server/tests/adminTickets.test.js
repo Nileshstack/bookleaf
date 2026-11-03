@@ -370,6 +370,10 @@ describe('GET /admin/stats', () => {
 
     expect(s.unresolved.count).toBe(s.byStatus.Open + s.byStatus['In Progress']);
     expect(s.unresolved.averageAgeHours).toEqual(expect.any(Number));
+    // Open-queue breakdowns only count Open / In Progress tickets.
+    expect(sum(s.unresolved.byPriority)).toBe(s.unresolved.count);
+    expect(sum(s.unresolved.byCategory)).toBe(s.unresolved.count);
+    expect(s.unresolved.byPriority.Critical).toBeLessThan(s.byPriority.Critical);
 
     // Only T6 had AI suggestions, and it was reverted, so 0 of 1 overridden.
     expect(s.ai.category).toEqual({ suggested: 1, overridden: 0, overrideRate: 0 });
