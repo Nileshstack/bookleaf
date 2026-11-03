@@ -86,6 +86,14 @@ describe('book facts', () => {
     expect(buildBookFacts(published, NOW, { category: 'General Inquiry' }).text).toContain('OVERDUE CHECK');
   });
 
+  // Regression (QA): royalty replies quoted only the pending amount.
+  test('royalty tickets get the breakdown to quote; other categories do not', () => {
+    expect(buildBookFacts(published, NOW, { category: 'Royalty & Payments' }).text).toContain(
+      'BREAKDOWN (the reply must state all four figures): 67 copies sold, ₹2,546 earned, ₹0 paid, ₹2,546 pending.',
+    );
+    expect(buildBookFacts(published, NOW, { category: 'General Inquiry' }).text).not.toContain('BREAKDOWN');
+  });
+
   test('pending below ₹1,000 explains the rollover and is not flagged overdue', () => {
     const { text } = buildBookFacts({ ...published, totalRoyaltyEarned: 850, royaltyPending: 850 }, NOW);
     expect(text).toContain('Pending ₹850 is below the ₹1,000 minimum, so it rolls over');

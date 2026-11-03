@@ -127,6 +127,13 @@ export const buildBookFacts = (book, now = new Date(), { category } = {}) => {
     );
   }
 
+  // A rule in the system prompt alone was not enough: in QA the model quoted only the pending figure.
+  if (category === 'Royalty & Payments' && r.totalEarned > 0) {
+    lines.push(
+      `BREAKDOWN (the reply must state all four figures): ${r.copiesSold.toLocaleString('en-IN')} copies sold, ${inr(r.totalEarned)} earned, ${inr(r.paid)} paid, ${inr(r.pending)} pending.`,
+    );
+  }
+
   if (aboutMoney && payoutAppearsOverdue(book, now)) {
     const since = book.lastRoyaltyPayoutDate ?? book.publicationDate;
     lines.push(

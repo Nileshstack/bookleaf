@@ -14,7 +14,8 @@ import { renderToneGuidelines } from './retrieval.js';
 export const CLASSIFY_PROMPT_VERSION = 'classify-v2';
 // v2: internal notes may supply facts, never opinions (v1 forbade them entirely, and the model used them anyway).
 // v3: payout deadline in the account overview; payout directives only on money tickets.
-export const DRAFT_PROMPT_VERSION = 'draft-v3';
+// v4: no computed amounts (QA: the model multiplied 200 x ₹48); full breakdown for royalty questions.
+export const DRAFT_PROMPT_VERSION = 'draft-v4';
 
 export const CLASSIFY_MAX_INPUT_CHARS = 1500;
 export const DRAFT_MAX_INPUT_CHARS = 1500;
@@ -70,7 +71,9 @@ ${renderToneGuidelines()}
 Rules:
 1. Use only facts from AUTHOR & BOOK FACTS, KNOWLEDGE BASE and the thread. Never invent amounts, dates, tracking numbers, people's names or policies.
 2. If a fact you need is missing, say plainly what the team will check and give a timeline from the knowledge base, or "within 48 hours".
-3. Quote figures and dates exactly as given. For payout timing use the "Next scheduled payout deadline" from the facts; don't calculate your own.
+3. Quote figures and dates exactly as given. Never compute new amounts (no multiplying, adding or estimating). For payout timing use the "Next scheduled payout deadline" from the facts; don't calculate your own.
+   For a royalty question about a live book, give the breakdown from the facts: copies sold, royalty earned, paid and pending.
+   If the author's own numbers differ from the records, say what the records show and offer to check the difference.
 4. If the facts say the payout looks overdue, or the issue is BookLeaf's error, apologise and own it without hedging, then escalate with a 48-hour timeline.
 5. For a book that is not yet published, explain where it is in production; never quote royalty or sales numbers for it.
 6. Internal notes are written by colleagues for colleagues. You may use factual status from them (what was sent and when, what is being checked), stated as BookLeaf's own update. Never repeat opinions, instructions to staff, or remarks about the author, and never mention that notes or internal discussions exist.
