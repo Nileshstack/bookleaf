@@ -90,9 +90,13 @@ export const createAiClient = ({
 
   /**
    * One logical completion (up to 1 + maxRetries HTTP attempts).
+   * Interactive callers can ask for a shorter budget (`retries`, `timeout`);
+   * neither can exceed the configured limits.
    * Resolves { content, usage, model, latencyMs, attempts }; rejects with AiUnavailableError.
    */
-  const complete = async ({ feature, messages, temperature = 0, maxTokens = 300, json = false, ticketId }) => {
+  const complete = async ({ feature, messages, temperature = 0, maxTokens = 300, json = false, ticketId, retries, timeout }) => {
+    const callRetries = Math.min(retries ?? maxRetries, maxRetries);
+    const callTimeout = Math.min(timeout ?? timeoutMs, timeoutMs);
     const report = (record) => {
       try {
         onUsage({ feature, model, ticketId, ...record });
@@ -114,16 +118,19 @@ export const createAiClient = ({
     let lastError;
     let attemptsMade = 0;
 
-    for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
+    for (let attempt = 1; attempt <= callRetries + 1; attempt += 1) {
       attemptsMade = attempt;
       try {
-        const response = await openai.chat.completions.create({
-          model,
-          messages,
-          temperature,
-          max_completion_tokens: maxTokens,
-          ...(json && { response_format: { type: 'json_object' } }),
-        });
+        const response = await openai.chat.completions.create(
+          {
+            model,
+            messages,
+            temperature,
+            max_completion_tokens: maxTokens,
+            ...(json && { response_format: { type: 'json_object' } }),
+          },
+          { timeout: callTimeout },
+        );
 
         const usage = {
           promptTokens: response.usage?.prompt_tokens ?? 0,
@@ -145,7 +152,7 @@ export const createAiClient = ({
         };
       } catch (err) {
         lastError = err;
-        const canRetry = isRetryable(err) && attempt <= maxRetries;
+        const canRetry = isRetryable(err) && attempt <= callRetries;
         logger.warn('AI request failed', { feature, attempt, status: err?.status, error: err?.message, willRetry: canRetry });
         if (!canRetry) break;
         await sleep(backoffMs(attempt, lastError));

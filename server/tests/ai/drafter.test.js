@@ -87,6 +87,12 @@ describe('generateDraft', () => {
   });
 });
 
+test('drafts ask for an interactive budget (1 retry, 12 s per attempt)', async () => {
+  const client = fakeClient();
+  await generateDraft({ ticket, book, author, messages: [], now: NOW }, { client });
+  expect(client.complete.mock.calls[0][0]).toMatchObject({ feature: 'draft', retries: 1, timeout: 12_000 });
+});
+
 describe('postProcessDraft guard rails', () => {
   test('appends the sign-off if the model forgot it', () => {
     expect(postProcessDraft('Hi Ananya,\n\nThanks.', { allowedAmounts: [] }).text).toMatch(/Warm regards,\nTeam BookLeaf$/);

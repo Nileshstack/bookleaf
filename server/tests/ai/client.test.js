@@ -90,6 +90,20 @@ describe('AI client', () => {
     expect(create).toHaveBeenCalledTimes(3);
   });
 
+  // Quick win from the QA degradation run: an admin waited ~47 s for the draft fallback.
+  test('a caller can ask for a smaller budget, but never above the configured one', async () => {
+    const { client, create } = setup({ timeoutMs: 15_000 });
+    create.mockRejectedValue(timeoutError());
+    await expect(client.complete({ feature: 'draft', messages: [], retries: 1, timeout: 12_000 })).rejects.toMatchObject({ code: 'TIMEOUT' });
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[0][1]).toEqual({ timeout: 12_000 });
+
+    create.mockClear();
+    await expect(client.complete({ feature: 'draft', messages: [], retries: 9, timeout: 99_000 })).rejects.toMatchObject({ code: 'TIMEOUT' });
+    expect(create).toHaveBeenCalledTimes(3); // capped at maxRetries = 2
+    expect(create.mock.calls[0][1]).toEqual({ timeout: 15_000 });
+  });
+
   test('non-retryable errors (400/401) fail immediately', async () => {
     const { client, create, sleep } = setup();
     create.mockRejectedValue(httpError(401));

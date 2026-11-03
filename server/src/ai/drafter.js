@@ -95,6 +95,10 @@ export const generateDraft = async ({ ticket, book, author, authorBooks = [], me
     ticketId: ticket._id,
     temperature: 0.4,
     maxTokens: 450,
+    // An admin is waiting on this one: fail over to the template in ~25 s at
+    // worst (QA: 3 × 15 s attempts on a hung upstream took ~47 s).
+    retries: 1,
+    timeout: 12_000,
     messages: [
       { role: 'system', content: DRAFT_SYSTEM_PROMPT },
       { role: 'user', content: userMessage },
