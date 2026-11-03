@@ -52,32 +52,34 @@ function Bubble({
 export function AdminThread({ ticket, publicMessages }: { ticket: AdminTicketDetail; publicMessages: AdminMessage[] }) {
   const authorName = ticket.author?.name ?? "Author";
   return (
-    <ol role="log" aria-live="polite" aria-label="Conversation with the author" className="space-y-6">
-      <Bubble team={false} name={authorName} time={dateTime(ticket.createdAt)}>
-        {ticket.description}
-        {ticket.attachments.length > 0 && (
-          <ul className="mt-3 flex flex-wrap gap-2" aria-label="Attachments">
-            {ticket.attachments.map((a) => (
-              <li key={a.fileName} className="inline-flex items-center gap-1.5 rounded-md bg-paper-2 px-2 py-1 text-xs text-ink-2">
-                <FileText className="size-3.5" aria-hidden />
-                {a.fileName}
-                {a.sizeBytes ? <span className="text-muted">· {fileSize(a.sizeBytes)}</span> : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Bubble>
-      {publicMessages.map((m) => (
-        <Bubble
-          key={m._id}
-          team={m.senderRole === "admin"}
-          name={m.senderRole === "admin" ? (m.senderName ?? "BookLeaf Support") : authorName}
-          time={dateTime(m.createdAt)}
-          aiAssisted={m.wasAiDrafted}
-        >
-          {m.body}
+    <div role="log" aria-live="polite" aria-label="Conversation with the author">
+      <ol className="space-y-6">
+        <Bubble team={false} name={authorName} time={dateTime(ticket.createdAt)}>
+          {ticket.description}
+          {ticket.attachments.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2" aria-label="Attachments">
+              {ticket.attachments.map((a) => (
+                <li key={a.fileName} className="inline-flex items-center gap-1.5 rounded-md bg-paper-2 px-2 py-1 text-xs text-ink-2">
+                  <FileText className="size-3.5" aria-hidden />
+                  {a.fileName}
+                  {a.sizeBytes ? <span className="text-muted">· {fileSize(a.sizeBytes)}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
         </Bubble>
-      ))}
-    </ol>
+        {publicMessages.map((m) => (
+          <Bubble
+            key={m._id}
+            team={m.senderRole === "admin"}
+            name={m.senderRole === "admin" ? (m.senderName ?? "BookLeaf Support") : authorName}
+            time={dateTime(m.createdAt)}
+            aiAssisted={m.wasAiDrafted}
+          >
+            {m.body}
+          </Bubble>
+        ))}
+      </ol>
+    </div>
   );
 }

@@ -181,25 +181,27 @@ export function TicketDetailView() {
       </header>
 
       <Card className="p-4 sm:p-6">
-        <ol role="log" aria-live="polite" aria-label="Conversation" className="space-y-6">
-          <Bubble mine name="You" time={dateTime(t.createdAt)}>
-            {t.description}
-            <AttachmentList attachments={t.attachments} />
-          </Bubble>
-
-          {t.messages.map((m) => (
-            <Bubble key={m._id} mine={m.senderRole === "author"} name={m.senderRole === "author" ? "You" : (m.senderName ?? "BookLeaf Support")} time={dateTime(m.createdAt)}>
-              {m.body}
+        <div role="log" aria-live="polite" aria-label="Conversation">
+          <ol className="space-y-6">
+            <Bubble mine name="You" time={dateTime(t.createdAt)}>
+              {t.description}
+              <AttachmentList attachments={t.attachments} />
             </Bubble>
-          ))}
 
-          {t.messages.every((m) => m.senderRole === "author") && !closed && (
-            <li className="flex items-center gap-2 rounded-lg bg-paper-2/70 px-3 py-2.5 text-sm text-ink-2">
-              <Info className="size-4 shrink-0 text-muted" aria-hidden />
-              Our support team has your ticket. Their reply will appear here as soon as it&apos;s sent.
-            </li>
-          )}
-        </ol>
+            {t.messages.map((m) => (
+              <Bubble key={m._id} mine={m.senderRole === "author"} name={m.senderRole === "author" ? "You" : (m.senderName ?? "BookLeaf Support")} time={dateTime(m.createdAt)}>
+                {m.body}
+              </Bubble>
+            ))}
+
+            {t.messages.every((m) => m.senderRole === "author") && !closed && (
+              <li className="flex items-center gap-2 rounded-lg bg-paper-2/70 px-3 py-2.5 text-sm text-ink-2">
+                <Info className="size-4 shrink-0 text-muted" aria-hidden />
+                Our support team has your ticket. Their reply will appear here as soon as it&apos;s sent.
+              </li>
+            )}
+          </ol>
+        </div>
         <div ref={endRef} />
 
         <div className="mt-6 border-t border-line pt-5">

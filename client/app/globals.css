@@ -18,7 +18,7 @@
 
   --color-ink: #1c2a33;
   --color-ink-2: #3e4c56;
-  --color-muted: #66737d;
+  --color-muted: #5c6873; /* ≥ 4.9:1 on white, paper and paper-2 (axe found 4.2–4.5 with #66737d) */
 
   --color-brand-50: #eef6f6;
   --color-brand-100: #d5e9ea;

@@ -43,7 +43,7 @@ export function CategoryChart({ counts, caption }: { counts: CountMap; caption: 
   return (
     <figure>
       <div aria-hidden>
-        <BarChart responsive data={rows} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }} style={{ width: "100%", height: 220 }}>
+        <BarChart responsive accessibilityLayer={false} data={rows} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }} style={{ width: "100%", height: 220 }}>
           <CartesianGrid horizontal={false} stroke="#efe9de" />
           <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: "#66737d" }} axisLine={false} tickLine={false} />
           <YAxis type="category" dataKey="name" width={124} tick={{ fontSize: 12, fill: "#3e4c56" }} axisLine={false} tickLine={false} />
@@ -63,7 +63,7 @@ export function PriorityChart({ counts, caption }: { counts: CountMap; caption: 
   return (
     <figure>
       <div aria-hidden>
-        <BarChart responsive data={rows} margin={{ top: 8, right: 8, bottom: 4, left: -16 }} style={{ width: "100%", height: 220 }}>
+        <BarChart responsive accessibilityLayer={false} data={rows} margin={{ top: 8, right: 8, bottom: 4, left: -16 }} style={{ width: "100%", height: 220 }}>
           <CartesianGrid vertical={false} stroke="#efe9de" />
           <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#3e4c56" }} axisLine={false} tickLine={false} />
           <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#66737d" }} axisLine={false} tickLine={false} />

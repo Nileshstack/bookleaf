@@ -43,7 +43,7 @@ export function InternalNotes({ ticketNumber, notes, onAdded }: { ticketNumber: 
         <ul className="max-h-72 space-y-3 overflow-y-auto px-5 py-4">
           {notes.map((n) => (
             <li key={n._id} className="text-sm">
-              <p className="text-xs text-amber-900/70">
+              <p className="text-xs text-amber-900/85">
                 <span className="font-medium text-amber-950">{n.senderName ?? "Team"}</span> · {dateTime(n.createdAt)}
               </p>
               <p className="mt-0.5 whitespace-pre-wrap text-amber-950">{n.body}</p>
@@ -51,7 +51,7 @@ export function InternalNotes({ ticketNumber, notes, onAdded }: { ticketNumber: 
           ))}
         </ul>
       ) : (
-        <p className="px-5 py-4 text-sm text-amber-900/70">No notes yet. Use notes for context the author shouldn&apos;t see.</p>
+        <p className="px-5 py-4 text-sm text-amber-900/85">No notes yet. Use notes for context the author shouldn&apos;t see.</p>
       )}
 
       <div className="space-y-2 border-t border-amber-200 px-5 py-4">
@@ -70,7 +70,7 @@ export function InternalNotes({ ticketNumber, notes, onAdded }: { ticketNumber: 
           className="min-h-20 border-amber-300 bg-white/80 focus:border-amber-500 focus:ring-amber-500/20"
         />
         <div className="flex items-center justify-between">
-          <span className="text-xs text-amber-900/60">Ctrl + Enter to add</span>
+          <span className="text-xs text-amber-900/85">Ctrl + Enter to add</span>
           <Button size="sm" variant="secondary" onClick={add} loading={saving} disabled={!body.trim()}>
             Add note
           </Button>
