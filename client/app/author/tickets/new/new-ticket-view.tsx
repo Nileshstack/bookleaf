@@ -90,7 +90,7 @@ export function NewTicketView() {
     <>
       <PageHeader title="Raise a ticket" description="Tell us what's going on and our support team will get back to you here." />
 
-      <div className="grid items-start gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <form onSubmit={onSubmit} noValidate className="space-y-6 p-5 sm:p-6">
             <Field

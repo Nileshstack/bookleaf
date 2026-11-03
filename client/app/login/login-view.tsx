@@ -73,7 +73,7 @@ export function LoginView() {
   };
 
   return (
-    <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
+    <div className="grid grid-cols-1 min-h-dvh lg:grid-cols-[1.05fr_1fr]">
       {/* Brand panel */}
       <section className="relative hidden overflow-hidden bg-brand-800 text-brand-50 lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div

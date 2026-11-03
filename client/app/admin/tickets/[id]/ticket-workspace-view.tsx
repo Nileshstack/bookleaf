@@ -27,7 +27,7 @@ export function WorkspaceSkeleton() {
       <Skeleton className="mb-5 h-4 w-24" />
       <Skeleton className="mb-3 h-8 w-2/3" />
       <Skeleton className="mb-8 h-4 w-1/3" />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
           <Skeleton className="h-40 rounded-2xl" />
           <Skeleton className="h-72 rounded-2xl" />
@@ -110,7 +110,7 @@ export function TicketWorkspaceView() {
         </p>
       </header>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-6">
           <AuthorContextCard ticket={t} />
           <Card className="p-4 sm:p-6">

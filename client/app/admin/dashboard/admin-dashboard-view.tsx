@@ -143,7 +143,7 @@ export function AdminDashboardView() {
             />
           </section>
 
-          <div className="mt-6 grid items-start gap-6 xl:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
             <Card className="xl:col-span-2">
               <CardHeader
                 title="Tickets by category and priority"
@@ -164,7 +164,7 @@ export function AdminDashboardView() {
                   </div>
                 }
               />
-              <div className="grid gap-6 p-5 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-6 p-5 lg:grid-cols-2">
                 <div>
                   <h3 className="mb-2 text-sm font-medium text-ink-2">By category</h3>
                   <CategoryChart counts={scope === "open" ? s.unresolved.byCategory : s.byCategory} caption="Tickets by category" />

@@ -13,7 +13,7 @@ import { useResource } from "@/lib/useResource";
 function BooksSkeleton() {
   return (
     <LoadingRegion label="Loading your books">
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         {[0, 1].map((i) => (
           <Card key={i} className="space-y-5 p-5">
             <div className="flex justify-between">
@@ -73,7 +73,7 @@ export function BooksView() {
           />
         </Card>
       ) : (
-        <div className="grid items-start gap-5 xl:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
           {books.data.map((book) => (
             <BookCard key={book._id} book={book} />
           ))}

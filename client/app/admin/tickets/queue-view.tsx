@@ -204,7 +204,7 @@ export function QueueView() {
       />
 
       <Card className="mb-4 p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
           <div className="relative sm:col-span-2 lg:col-span-4 xl:col-span-2">
             <label htmlFor="queue-search" className="sr-only">
               Search tickets
@@ -247,15 +247,16 @@ export function QueueView() {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
-          <span className="inline-flex items-center gap-2">
+          {/* Full width on phones: two fixed 10rem date inputs overflowed a 375px screen. */}
+          <span className="flex w-full items-center gap-2 sm:inline-flex sm:w-auto">
             <label htmlFor="f-from" className="text-muted">
               From
             </label>
-            <Input id="f-from" type="date" value={param("from")} max={param("to") || undefined} onChange={(e) => setParams({ from: e.target.value || null })} className="h-9 w-40" />
+            <Input id="f-from" type="date" value={param("from")} max={param("to") || undefined} onChange={(e) => setParams({ from: e.target.value || null })} className="h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" />
             <label htmlFor="f-to" className="text-muted">
               to
             </label>
-            <Input id="f-to" type="date" value={param("to")} min={param("from") || undefined} onChange={(e) => setParams({ to: e.target.value || null })} className="h-9 w-40" />
+            <Input id="f-to" type="date" value={param("to")} min={param("from") || undefined} onChange={(e) => setParams({ to: e.target.value || null })} className="h-9 min-w-0 flex-1 sm:w-40 sm:flex-none" />
           </span>
           {[
             { key: "assignedTo", on: "me", label: "Assigned to me" },
