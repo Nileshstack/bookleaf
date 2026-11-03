@@ -29,7 +29,10 @@ const normalize = (err) => {
 
   if (err?.code === 11000) {
     const fields = Object.keys(err.keyValue ?? {});
-    return AppError.conflict(`Duplicate value for ${fields.join(', ') || 'a unique field'}`, { fields });
+    return AppError.conflict(
+      `Duplicate value for ${fields.join(', ') || 'a unique field'}`,
+      fields.map((field) => ({ field, message: 'Already in use' })),
+    );
   }
 
   if (err?.name === 'TokenExpiredError') return AppError.unauthorized('Session expired, please log in again');
@@ -68,7 +71,8 @@ export const errorHandler = (err, req, res, _next) => {
     error: {
       code: error.code,
       message: error.message,
-      ...(error.details && { details: error.details }),
+      // Always an array so clients can iterate without null checks.
+      details: Array.isArray(error.details) ? error.details : [],
       requestId: req.id,
       // Raw messages of unexpected errors help locally but must never leak in production.
       ...(!known && !env.isProd && { debug: err.message }),

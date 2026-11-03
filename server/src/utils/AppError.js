@@ -18,8 +18,12 @@ export class AppError extends Error {
     return new AppError(message, { statusCode: 400, code: 'BAD_REQUEST', details });
   }
 
-  static validation(details, message = 'Validation failed') {
-    return new AppError(message, { statusCode: 422, code: 'VALIDATION_ERROR', details });
+  /**
+   * 422 for a well-formed body whose values are invalid; pass statusCode 400
+   * when the URL itself (params / query) is malformed.
+   */
+  static validation(details, { message = 'Validation failed', statusCode = 422 } = {}) {
+    return new AppError(message, { statusCode, code: 'VALIDATION_ERROR', details });
   }
 
   static unauthorized(message = 'Authentication required') {
