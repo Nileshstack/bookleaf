@@ -4,6 +4,7 @@ import authRoutes from './auth.routes.js';
 import bookRoutes from './book.routes.js';
 import ticketRoutes from './ticket.routes.js';
 import userRoutes from './user.routes.js';
+import adminRoutes from './admin.routes.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -25,5 +26,6 @@ router.use(authenticate);
 router.use('/books', bookRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/users', userRoutes);
+router.use('/admin', adminRoutes);
 
 export default router;

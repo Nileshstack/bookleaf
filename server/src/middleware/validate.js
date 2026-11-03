@@ -7,7 +7,12 @@ const SOURCES = {
 };
 
 const toDetails = (zodError) =>
-  zodError.issues.map((issue) => ({ field: issue.path.join('.') || null, message: issue.message }));
+  zodError.issues.flatMap((issue) =>
+    // Strict schemas report all unknown keys in one issue; split them so each field gets its own entry.
+    issue.code === 'unrecognized_keys'
+      ? issue.keys.map((key) => ({ field: [...issue.path, key].join('.'), message: 'Unknown field' }))
+      : [{ field: issue.path.join('.') || null, message: issue.message }],
+  );
 
 /**
  * validate({ params, query, body }) runs the given Zod schemas and puts the

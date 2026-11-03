@@ -3,7 +3,7 @@ import { AppError } from '../utils/AppError.js';
 import { refFilter, scopeToOwner } from './access.js';
 import { isPublished, productionProgress, royaltyBreakdown } from './bookInsights.js';
 
-const presentBook = (book, now) => ({
+export const presentBook = (book, now = new Date()) => ({
   ...book.toJSON(),
   isPublished: isPublished(book),
   royaltyBreakdown: royaltyBreakdown(book, now),

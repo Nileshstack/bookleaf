@@ -13,7 +13,9 @@ const refOrCode = (codePattern, hint) =>
     .refine((v) => isObjectId(v) || codePattern.test(v), { message: `Must be an id or ${hint}` })
     .transform((v) => (isObjectId(v) ? v : v.toUpperCase()));
 
-export const ticketRef = refOrCode(/^BL-\d{4,}$/i, 'a ticket number like BL-0001');
+export const objectId = z.string().trim().refine(isObjectId, { message: 'Must be a valid id' });
+
+export const ticketRef =refOrCode(/^BL-\d{4,}$/i, 'a ticket number like BL-0001');
 export const bookRef = refOrCode(/^BK\d{3,}$/i, 'a book code like BK001');
 
 export const paginationQuery = {

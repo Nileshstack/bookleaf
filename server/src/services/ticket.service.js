@@ -4,6 +4,7 @@ import { runInBackground } from '../utils/background.js';
 import { pageMeta, paginate, refFilter, scopeToOwner } from './access.js';
 import { resolveOwnedBookId } from './book.service.js';
 import { presentMessage, presentTicket } from './presenters.js';
+import { publishToRole } from './realtime.service.js';
 import { classifyTicket } from './triage.service.js';
 
 /**
@@ -37,6 +38,15 @@ export const createTicket = async (user, { bookId, subject, description, attachm
   // The ticket is already saved. Classification runs after the response, and
   // a slow, failing or rate-limited AI API cannot affect ticket creation.
   runInBackground('classify-ticket', () => classifyTicket(ticket._id), { ticketId: String(ticket._id) });
+
+  publishToRole(ROLES.ADMIN, 'ticket.created', {
+    ticketId: ticket._id,
+    ticketNumber: ticket.ticketNumber,
+    subject: ticket.subject,
+    authorName: user.name,
+    status: ticket.status,
+    createdAt: ticket.createdAt,
+  });
 
   await ticket.populate('bookId', BOOK_FIELDS);
   return { ...presentTicket(ticket.toObject(), user), messages: [] };
@@ -110,6 +120,15 @@ export const addAuthorReply = async (user, ref, { body }) => {
   // Bump updatedAt even when status is unchanged, so "last activity" reflects the reply.
   ticket.markModified('status');
   await ticket.save();
+
+  publishToRole(ROLES.ADMIN, 'ticket.message', {
+    ticketId: ticket._id,
+    ticketNumber: ticket.ticketNumber,
+    status: ticket.status,
+    reopened,
+    senderRole: ROLES.AUTHOR,
+    preview: preview(body),
+  });
 
   await message.populate('senderId', 'name');
   return {
