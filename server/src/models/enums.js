@@ -26,3 +26,19 @@ export const PRIORITY_RANK = Object.freeze({ Critical: 0, High: 1, Medium: 2, Lo
 export const AI_STATUSES = Object.freeze(['pending', 'done', 'failed']);
 
 export const SENDER_ROLES = Object.freeze([ROLES.AUTHOR, ROLES.ADMIN]);
+
+// Attachments are metadata-only for now; these limits are enforced at the
+// API so the UI and a future real upload pipeline share the same rules.
+export const ATTACHMENT_LIMITS = Object.freeze({
+  maxFiles: 5,
+  maxSizeBytes: 10 * 1024 * 1024,
+  mimeTypes: Object.freeze([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  ]),
+});

@@ -27,6 +27,21 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Per-author cap on new tickets. Every ticket triggers a paid AI call, so
+ * this stops a buggy client or abusive account from running up the bill.
+ * Keyed by user, not IP: runs after authenticate.
+ */
+export const ticketCreationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => `ticket-create:${req.user.id}`,
+  message: "You've opened a lot of tickets in the last hour. Please add details to an existing ticket, or try again later",
+  handler,
+});
+
+/**
  * Guards endpoints that call the LLM. Each call costs money, so this is
  * deliberately stricter than the general API limit.
  */

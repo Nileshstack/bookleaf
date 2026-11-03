@@ -42,4 +42,27 @@ ticketMessageSchema.statics.findThread = function findThread(ticketId, { viewerR
   return this.find(filter).sort({ createdAt: 1 });
 };
 
+/**
+ * Latest visible message and visible message count for each ticket, in one
+ * aggregation, for list previews. Same fail-closed role rule as findThread.
+ * Returns Map<ticketId string, { last, count }>.
+ */
+ticketMessageSchema.statics.latestVisibleByTicket = async function latestVisibleByTicket(
+  ticketIds,
+  { viewerRole } = {},
+) {
+  if (!SENDER_ROLES.includes(viewerRole)) {
+    throw new Error('latestVisibleByTicket requires a valid viewerRole');
+  }
+  const match = { ticketId: { $in: ticketIds } };
+  if (viewerRole !== ROLES.ADMIN) match.isInternalNote = false;
+
+  const rows = await this.aggregate([
+    { $match: match },
+    { $sort: { createdAt: -1 } },
+    { $group: { _id: '$ticketId', last: { $first: '$$ROOT' }, count: { $sum: 1 } } },
+  ]);
+  return new Map(rows.map((r) => [String(r._id), { last: r.last, count: r.count }]));
+};
+
 export const TicketMessage = mongoose.model('TicketMessage', ticketMessageSchema);
