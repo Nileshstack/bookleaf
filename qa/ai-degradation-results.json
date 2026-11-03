@@ -1,0 +1,252 @@
+[
+  {
+    "scenario": "a) invalid OPENAI_API_KEY (real OpenAI, 401)",
+    "checks": [
+      {
+        "name": "ticket created: 201",
+        "pass": true,
+        "detail": "201 in 31 ms"
+      },
+      {
+        "name": "creation did not wait for AI (< 1 s)",
+        "pass": true,
+        "detail": "31 ms"
+      },
+      {
+        "name": "aiStatus = 'failed'",
+        "pass": true,
+        "detail": "failed"
+      },
+      {
+        "name": "classificationSource = 'rules'",
+        "pass": true,
+        "detail": "rules"
+      },
+      {
+        "name": "rule fallback set category + priority",
+        "pass": true,
+        "detail": "Royalty & Payments / Critical"
+      },
+      {
+        "name": "draft: 503 AI_UNAVAILABLE",
+        "pass": true,
+        "detail": "503 AI_UNAVAILABLE reason=REQUEST_REJECTED in 340 ms"
+      },
+      {
+        "name": "draft: fallback template for the admin",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "draft: no stack trace in the error",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "circuit breaker open after 3 failures",
+        "pass": true,
+        "detail": "open"
+      },
+      {
+        "name": "/health reports ai \"degraded\"",
+        "pass": true,
+        "detail": "{\"database\":\"up\",\"ai\":\"degraded\"}"
+      },
+      {
+        "name": "open breaker fails fast (< 300 ms, no upstream call)",
+        "pass": true,
+        "detail": "503 reason=CIRCUIT_OPEN in 12 ms"
+      },
+      {
+        "name": "manual admin reply still works: 201",
+        "pass": true,
+        "detail": "201"
+      },
+      {
+        "name": "more tickets still accepted while AI is down",
+        "pass": true,
+        "detail": "201 in 9 ms"
+      },
+      {
+        "name": "process still alive",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "API key never logged",
+        "pass": true,
+        "detail": ""
+      }
+    ]
+  },
+  {
+    "scenario": "b) upstream timeout (AI_TIMEOUT_MS=1500)",
+    "checks": [
+      {
+        "name": "ticket created: 201",
+        "pass": true,
+        "detail": "201 in 28 ms"
+      },
+      {
+        "name": "creation did not wait for AI (< 1 s)",
+        "pass": true,
+        "detail": "28 ms"
+      },
+      {
+        "name": "aiStatus = 'failed'",
+        "pass": true,
+        "detail": "failed"
+      },
+      {
+        "name": "classificationSource = 'rules'",
+        "pass": true,
+        "detail": "rules"
+      },
+      {
+        "name": "rule fallback set category + priority",
+        "pass": true,
+        "detail": "Royalty & Payments / Critical"
+      },
+      {
+        "name": "draft: 503 AI_UNAVAILABLE",
+        "pass": true,
+        "detail": "503 AI_UNAVAILABLE reason=TIMEOUT in 6232 ms"
+      },
+      {
+        "name": "draft: fallback template for the admin",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "draft: no stack trace in the error",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "circuit breaker open after 3 failures",
+        "pass": true,
+        "detail": "open"
+      },
+      {
+        "name": "/health reports ai \"degraded\"",
+        "pass": true,
+        "detail": "{\"database\":\"up\",\"ai\":\"degraded\"}"
+      },
+      {
+        "name": "open breaker fails fast (< 300 ms, no upstream call)",
+        "pass": true,
+        "detail": "503 reason=CIRCUIT_OPEN in 22 ms"
+      },
+      {
+        "name": "manual admin reply still works: 201",
+        "pass": true,
+        "detail": "201"
+      },
+      {
+        "name": "more tickets still accepted while AI is down",
+        "pass": true,
+        "detail": "201 in 17 ms"
+      },
+      {
+        "name": "process still alive",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "API key never logged",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "upstream was retried (attempts > 1 per call)",
+        "pass": true,
+        "detail": "12 upstream requests"
+      }
+    ]
+  },
+  {
+    "scenario": "c) upstream 429 rate limit (Retry-After: 1)",
+    "checks": [
+      {
+        "name": "ticket created: 201",
+        "pass": true,
+        "detail": "201 in 27 ms"
+      },
+      {
+        "name": "creation did not wait for AI (< 1 s)",
+        "pass": true,
+        "detail": "27 ms"
+      },
+      {
+        "name": "aiStatus = 'failed'",
+        "pass": true,
+        "detail": "failed"
+      },
+      {
+        "name": "classificationSource = 'rules'",
+        "pass": true,
+        "detail": "rules"
+      },
+      {
+        "name": "rule fallback set category + priority",
+        "pass": true,
+        "detail": "Royalty & Payments / Critical"
+      },
+      {
+        "name": "draft: 503 AI_UNAVAILABLE",
+        "pass": true,
+        "detail": "503 AI_UNAVAILABLE reason=RATE_LIMITED in 2066 ms"
+      },
+      {
+        "name": "draft: fallback template for the admin",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "draft: no stack trace in the error",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "circuit breaker open after 3 failures",
+        "pass": true,
+        "detail": "open"
+      },
+      {
+        "name": "/health reports ai \"degraded\"",
+        "pass": true,
+        "detail": "{\"database\":\"up\",\"ai\":\"degraded\"}"
+      },
+      {
+        "name": "open breaker fails fast (< 300 ms, no upstream call)",
+        "pass": true,
+        "detail": "503 reason=CIRCUIT_OPEN in 19 ms"
+      },
+      {
+        "name": "manual admin reply still works: 201",
+        "pass": true,
+        "detail": "201"
+      },
+      {
+        "name": "more tickets still accepted while AI is down",
+        "pass": true,
+        "detail": "201 in 16 ms"
+      },
+      {
+        "name": "process still alive",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "API key never logged",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "name": "upstream was retried (attempts > 1 per call)",
+        "pass": true,
+        "detail": "12 upstream requests"
+      }
+    ]
+  }
+]

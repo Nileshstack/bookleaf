@@ -122,10 +122,22 @@ Open <http://localhost:3000> and pick a demo account. Run only **one** API dev s
 ### Tests
 
 ```bash
-npm test --prefix server          # 200 tests: Jest + supertest + in-memory MongoDB, OpenAI mocked
-npm run lint --prefix client      # ESLint (Next + React Compiler rules)
-npm run build --prefix client     # type-check + production build
+npm test --prefix server              # 215 unit/integration tests: Jest + supertest + in-memory MongoDB, OpenAI mocked
+npm run test:e2e --prefix server      # 45 end-to-end API + SSE tests on the seeded dataset
+npm run test:e2e --prefix client      # 33 Playwright tests (headless Chromium), isolated stack on :3100/:5100
+npm run verify:seed --prefix server   # counts and duplicates in your database after `npm run seed`
+npm run lint --prefix client          # ESLint (Next + React Compiler rules)
+npm run build --prefix client         # type-check + production build
 ```
+
+Two scripts use the **real** OpenAI key from `server/.env`, on an in-memory database (well under $0.01 per run):
+
+```bash
+npm run eval:ai --prefix server         # 17 labelled tickets + 10 drafts, scored; writes qa/
+npm run qa:degradation --prefix server  # invalid key, timeout, 429: the server must keep working
+```
+
+Results, screenshots and the bug log are in [QA_REPORT.md](QA_REPORT.md).
 
 ---
 

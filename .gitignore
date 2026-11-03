@@ -28,3 +28,7 @@ Thumbs.db
 qa/playwright-results/
 qa/playwright-report/
 qa/aria/
+
+# Raw QA run logs (summaries are committed under qa/)
+qa/playwright-run.log
+qa/console-log.jsonl
