@@ -80,23 +80,17 @@ describe('role-based access', () => {
     expectError(await get('/api/v1/users', priyaToken), 403, 'FORBIDDEN');
   });
 
-  test('admin can use admin routes and sees every ticket, including internal notes', async () => {
+  test('admin can use admin routes', async () => {
     const users = await get('/api/v1/users?role=author', adminToken);
     expect(users.status).toBe(200);
     expect(users.body.data).toHaveLength(2);
     expect(JSON.stringify(users.body)).not.toContain('passwordHash');
+  });
 
-    const tickets = await get('/api/v1/tickets', adminToken);
-    // Queue order: High (Rohit) before Medium (Priya).
-    expect(tickets.body.data.map((t) => t.ticketNumber)).toEqual([
-      world.rohitTicket.ticketNumber,
-      world.priyaTicket.ticketNumber,
-    ]);
-
-    const detail = await get(`/api/v1/tickets/${world.priyaTicket._id}`, adminToken);
-    expect(detail.status).toBe(200);
-    expect(detail.body.data.priority).toBe('Medium');
-    expect(detail.body.data.messages.find((m) => m.isInternalNote).body).toBe('SECRET internal note');
+  test('admin gets 403 on author-portal routes (the admin queue has its own routes)', async () => {
+    for (const path of ['/api/v1/books', '/api/v1/tickets', `/api/v1/tickets/${world.priyaTicket._id}`]) {
+      expectError(await get(path, adminToken), 403, 'FORBIDDEN');
+    }
   });
 
   test('authenticated request to an unknown route gets a JSON 404', async () => {
