@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import OpenAI from 'openai';
 import { createAiClient } from '../../src/ai/client.js';
 import { AiUnavailableError } from '../../src/ai/errors.js';
 
@@ -75,6 +76,18 @@ describe('AI client', () => {
     await expect(call(client)).rejects.toMatchObject({ name: 'AiUnavailableError', code: 'TIMEOUT' });
     expect(create).toHaveBeenCalledTimes(3); // 1 + 2 retries
     expect(usage.at(-1)).toMatchObject({ outcome: 'error', errorCode: 'TIMEOUT', attempts: 3 });
+  });
+
+  // Regression (QA degradation run): the real SDK classes leave `name` as "Error", so a
+  // timeout was reported as REQUEST_REJECTED and never retried. Use the real classes here.
+  test.each([
+    ['APIConnectionTimeoutError', () => new OpenAI.APIConnectionTimeoutError(), 'TIMEOUT'],
+    ['APIConnectionError', () => new OpenAI.APIConnectionError({ message: 'Connection error.' }), 'UPSTREAM_ERROR'],
+  ])('real SDK %s is retried and reported correctly', async (_name, makeError, code) => {
+    const { client, create } = setup();
+    create.mockRejectedValue(makeError());
+    await expect(call(client)).rejects.toMatchObject({ name: 'AiUnavailableError', code });
+    expect(create).toHaveBeenCalledTimes(3);
   });
 
   test('non-retryable errors (400/401) fail immediately', async () => {

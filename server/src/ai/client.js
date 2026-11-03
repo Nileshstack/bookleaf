@@ -25,9 +25,11 @@ const MAX_BACKOFF_MS = 5_000;
 const RETRYABLE_STATUS = new Set([408, 409, 429]);
 const NETWORK_ERRORS = new Set(['APIConnectionError', 'APIConnectionTimeoutError']);
 
-const isTimeout = (err) => err?.name === 'APIConnectionTimeoutError' || err?.name === 'AbortError';
+// The SDK's error classes don't set `name` (it stays "Error"), so go by the class.
+const errorKind = (err) => (err?.name && err.name !== 'Error' ? err.name : err?.constructor?.name);
+const isTimeout = (err) => ['APIConnectionTimeoutError', 'AbortError'].includes(errorKind(err));
 const isRetryable = (err) =>
-  NETWORK_ERRORS.has(err?.name) || RETRYABLE_STATUS.has(err?.status) || (err?.status ?? 0) >= 500;
+  NETWORK_ERRORS.has(errorKind(err)) || RETRYABLE_STATUS.has(err?.status) || (err?.status ?? 0) >= 500;
 
 const codeFor = (err) => {
   if (isTimeout(err)) return 'TIMEOUT';
