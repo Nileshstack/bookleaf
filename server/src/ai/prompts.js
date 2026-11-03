@@ -10,7 +10,8 @@ import { renderToneGuidelines } from './retrieval.js';
  * caching apply once prompts exceed 1,024 tokens.
  */
 
-export const CLASSIFY_PROMPT_VERSION = 'classify-v1';
+// v2: QA found three misreads; bank-account changes, "amount seems too low" and piracy are now named explicitly.
+export const CLASSIFY_PROMPT_VERSION = 'classify-v2';
 // v2: internal notes may supply facts, never opinions (v1 forbade them entirely, and the model used them anyway).
 // v3: payout deadline in the account overview; payout directives only on money tickets.
 export const DRAFT_PROMPT_VERSION = 'draft-v3';
@@ -27,16 +28,16 @@ export const CLASSIFY_SYSTEM_PROMPT = `You triage author support tickets for Boo
 Return ONLY a JSON object: {"category": string, "priority": string, "reasoning": string, "confidence": number}
 
 category: exactly one of:
-- "Royalty & Payments": royalty amounts, payouts, payment delays, bank details, statements
+- "Royalty & Payments": royalty amounts, payouts, payment delays, statements, changing the bank account royalties are paid into
 - "ISBN & Metadata Issues": wrong, duplicate or mismatched ISBN; incorrect book details on a listing
 - "Printing & Quality": misprints, binding or colour defects, author copies, print turnaround
 - "Distribution & Availability": book unavailable or missing on Amazon/Flipkart/BookLeaf Store, listing not live, stock sync
 - "Book Status & Production Updates": editing, cover design, typesetting, proofreading, publication timeline
-- "General Inquiry": how-to questions (including updating description or author bio), account, packages, anything else
+- "General Inquiry": how-to questions (including updating description or author bio), login and account access, packages, piracy and rights, anything else
 
 priority: exactly one of ${TICKET_PRIORITIES.map((p) => `"${p}"`).join(', ')}:
-- Critical: money owed but unpaid for 6+ months, or never paid on a book live for 6+ months; duplicate ISBN or wrong book linked to an ISBN; account security; legal or rights problems.
-- High: ISBN mismatch on a live listing; print quality defects; book unavailable on a sales platform; disputed or overdue royalty; an author with a dated deadline (launch, event) at risk.
+- Critical: money owed but unpaid for 6+ months, or never paid on a book live for 6+ months; duplicate ISBN or wrong book linked to an ISBN; account security (lost access, unauthorised changes); legal or rights problems such as piracy, plagiarism or copyright infringement.
+- High: ISBN mismatch on a live listing; print quality defects; book unavailable on a sales platform; disputed or overdue royalty (the author says the amount is wrong or too low); an author with a dated deadline (launch, event) at risk.
 - Medium: status or timeline questions, payout timing questions, production delays without a hard deadline, how-to questions that affect sales.
 - Low: author bio, photo or cosmetic profile updates; general information; feedback.
 

@@ -85,3 +85,16 @@ describe('rule-based fallback classifier', () => {
     expect(classifyWithRules(t, { monthsSincePublication: 2 }).priority).toBe('High');
   });
 });
+
+// Regression (QA eval, classify-v1 scored 82% on category + priority): the three
+// misreads came from cues the rubric did not name. Real-model accuracy is
+// measured by `npm run eval:ai`; this pins the rubric wording.
+describe('classification rubric', () => {
+  test('names the cues the model missed in QA', async () => {
+    const { CLASSIFY_SYSTEM_PROMPT, CLASSIFY_PROMPT_VERSION } = await import('../../src/ai/prompts.js');
+    expect(CLASSIFY_PROMPT_VERSION).toBe('classify-v2');
+    expect(CLASSIFY_SYSTEM_PROMPT).toMatch(/changing the bank account royalties are paid into/);
+    expect(CLASSIFY_SYSTEM_PROMPT).toMatch(/piracy, plagiarism or copyright infringement/);
+    expect(CLASSIFY_SYSTEM_PROMPT).toMatch(/the author says the amount is wrong or too low/);
+  });
+});
