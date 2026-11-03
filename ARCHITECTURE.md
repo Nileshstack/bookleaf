@@ -112,12 +112,12 @@ Every error leaves the API in one shape:
 | GET | `/books/:bookId` | author (owner) | Mongo id or `BK001` |
 | POST | `/tickets` | author | 201 + `Location`. Per-author `ticketCreationLimiter` (20/h) |
 | GET | `/tickets` | author | Own tickets, newest first, `?status&category&page&limit`, with `lastMessage` preview + `messageCount` |
-| GET | `/tickets/stream` | author | SSE stream (stub: `ready` event + heartbeats) |
+| GET | `/tickets/stream` | author | SSE: `admin_reply`, `status_changed` (own tickets only) |
 | GET | `/tickets/:ticketId` | author (owner) | Mongo id or `BL-0001`; thread without internal notes |
 | POST | `/tickets/:ticketId/messages` | author (owner) | Follow-up; Resolved → Open; Closed → 409 `TICKET_CLOSED` |
 | GET | `/users` | admin | `?role&page&limit` |
 | GET | `/admin/tickets` | admin | Queue with filters, search, sort and pagination; see below |
-| GET | `/admin/tickets/stream` | admin | SSE: `ticket.created`, `ticket.message`, `ticket.updated`, `ticket.note` |
+| GET | `/admin/tickets/stream` | admin | SSE: `new_ticket`, `ticket_classified`, `author_reply`, `ticket_updated` |
 | GET | `/admin/tickets/:ticketId` | admin | Full detail: thread incl. internal notes, author profile, book insights, other open tickets |
 | PATCH | `/admin/tickets/:ticketId` | admin | `{ status?, category?, priority?, assignedTo? }`; strict: unknown keys give 422 |
 | POST | `/admin/tickets/:ticketId/assign-to-me` | admin | Idempotent; returns `previousAssigneeId` |
@@ -256,12 +256,16 @@ Full design, cost maths and failure matrix: **[server/docs/AI_DESIGN.md](server/
 - **Concurrency**: classification takes an atomic lease (`aiClaimedAt`), so restarts or several instances never classify, and pay for, the same ticket twice.
 - **Source of truth**: `ai/knowledgeBase.js` also exports the policy numbers (₹1,000 threshold, 45-day window, production stages) that `services/bookInsights.js` uses, so the API and the AI can't disagree.
 
-## Real-time (partially built)
+## Real-time
 
-Server-Sent Events, because updates flow one way (server to browser) and SSE works over plain HTTP with automatic reconnect. `EventSource` can't set headers, so the stream authenticates with the httpOnly cookie.
-- **Hub**: `services/realtime.service.js` holds open streams per user, tagged with role. It sends a `retry` hint, a `ready` event and 25s heartbeat comments so proxies don't drop idle connections, and cleans up on disconnect. Events go out through `publishToUser(userId, …)` and `publishToRole('admin', …)`.
-- **Events wired**:
-  - Author stream (`/tickets/stream`): `ticket.message` on an admin reply, carrying the author-view message, and `ticket.updated` when the status or category changes.
-  - Admin stream (`/admin/tickets/stream`): `ticket.created`, `ticket.message` (author follow-up), `ticket.updated` and `ticket.note`.
-- **Payloads are shaped per audience**: the author stream never carries priority, AI fields, `wasAiDrafted` or notes. A test asserts this on a live stream.
-- **Limitation**: the hub is in-memory, so it works for a single API instance. Scaling out would need Redis pub/sub behind the two publish functions.
+Server-Sent Events. Events catalogue, payloads, client usage and the scaling limitation are in the **[README](README.md#real-time-updates-server-sent-events)**.
+
+- `services/eventHub.js`: an in-memory hub with channels `user:<authorId>` and `admins`.
+  - Every event carries an SSE id, `<bootId>.<seq>`; reconnects replay from a 10-minute / 100-event buffer using `Last-Event-ID`.
+  - `ready.resync` tells the client to refetch when the gap can't be filled.
+  - It also sends 25 s heartbeats, cleans up on disconnect, caps each user at 5 streams, and `closeAll()` on shutdown.
+- `services/ticketEvents.js`: the single place that builds payloads. Services call `ticketCreated`, `ticketClassified`, `authorReplied`, `adminReplied` and `ticketUpdated`; they never publish raw documents.
+  - Author payloads are whitelisted (ticket id/number/status/updatedAt, plus the author-view message).
+  - Publishing an internal note to an author throws.
+- **Limitation**: single instance only. Horizontal scaling needs Redis pub/sub behind `publish()` / `deliverLocal()`, and Redis Streams for the replay buffer.
+
