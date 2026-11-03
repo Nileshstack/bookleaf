@@ -5,24 +5,12 @@
  * and dates.
  */
 
+import { PRODUCTION_STAGES, ROYALTY_POLICY } from '../ai/knowledgeBase.js';
+
+// Policy numbers live in the knowledge base, so the API and the AI prompts can't drift apart.
+export { PRODUCTION_STAGES, ROYALTY_POLICY };
+
 export const PUBLISHED_STATUS = 'Published & Live';
-
-export const PRODUCTION_STAGES = Object.freeze([
-  'Manuscript Received',
-  'Editing',
-  'Cover Design',
-  'Typesetting',
-  'Proofreading',
-  'ISBN Assignment',
-  'Printing',
-  'Distribution Setup',
-  PUBLISHED_STATUS,
-]);
-
-export const ROYALTY_POLICY = Object.freeze({
-  payoutThreshold: 1000, // ₹; smaller balances roll over to the next quarter
-  payoutDaysAfterQuarterEnd: 45,
-});
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const toISODate = (ms) => new Date(ms).toISOString().slice(0, 10);
@@ -99,6 +87,27 @@ export const royaltyBreakdown = (book, now = new Date()) => {
     nextScheduledPayout: pending > 0 ? nextScheduledPayout(now) : null,
   };
 };
+
+// One full quarter plus the 45-day payout window: the longest an eligible
+// balance should wait under the policy.
+const MAX_EXPECTED_WAIT_DAYS = 92 + ROYALTY_POLICY.payoutDaysAfterQuarterEnd;
+
+/**
+ * Heuristic "this author should already have been paid" check: the balance
+ * is above the threshold and the last payout (or the publication date, if
+ * never paid) is older than one quarter plus the 45-day window. Used to tell
+ * the drafting model to own the delay and escalate, instead of leaving the
+ * model to judge it.
+ */
+export const payoutAppearsOverdue = (book, now = new Date()) => {
+  if (!isPublished(book) || (book.royaltyPending ?? 0) < ROYALTY_POLICY.payoutThreshold) return false;
+  const since = book.lastRoyaltyPayoutDate ?? book.publicationDate;
+  if (!since) return false;
+  return now.getTime() - new Date(since).getTime() > MAX_EXPECTED_WAIT_DAYS * DAY_MS;
+};
+
+export const monthsBetween = (from, to = new Date()) =>
+  from ? Math.max(0, Math.floor((to.getTime() - new Date(from).getTime()) / (30.44 * DAY_MS))) : null;
 
 /** Where the book is in the production pipeline, e.g. "Cover Design", step 3 of 9. */
 export const productionProgress = (book) => {
