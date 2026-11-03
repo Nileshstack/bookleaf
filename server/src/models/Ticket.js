@@ -6,7 +6,10 @@ import {
   TICKET_CATEGORIES,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
+  UNRESOLVED_STATUSES,
 } from './enums.js';
+
+const isUnresolvedStatus = (status) => UNRESOLVED_STATUSES.includes(status);
 
 // Unclassified tickets sort alongside Medium: they shouldn't jump the queue
 // on a guess, but they shouldn't be buried either.
@@ -46,6 +49,7 @@ const ticketSchema = new mongoose.Schema(
     },
 
     status: { type: String, enum: TICKET_STATUSES, default: 'Open' },
+    isUnresolved: { type: Boolean, default: true }, // derived from status (Open / In Progress), see hooks
 
     category: { type: String, enum: [...TICKET_CATEGORIES, null], default: null },
     aiCategory: { type: String, enum: [...TICKET_CATEGORIES, null], default: null },
@@ -65,7 +69,9 @@ const ticketSchema = new mongoose.Schema(
   { timestamps: true, toJSON: { versionKey: false } },
 );
 
-// Admin queue: filter by status, most urgent first, then oldest first.
+// Default admin queue: unresolved first, then most urgent, then oldest.
+ticketSchema.index({ isUnresolved: -1, priorityRank: 1, createdAt: 1 });
+// Same order when the queue is filtered by status.
 ticketSchema.index({ status: 1, priorityRank: 1, createdAt: 1 });
 // Author's "My Tickets".
 ticketSchema.index({ authorId: 1, createdAt: -1 });
@@ -81,15 +87,37 @@ ticketSchema.pre('validate', async function assignDerivedFields() {
   if (this.isNew || this.isModified('priority')) {
     this.priorityRank = rankOf(this.priority);
   }
+  if (this.isNew || this.isModified('status')) {
+    this.isUnresolved = isUnresolvedStatus(this.status);
+  }
 });
 
-// Keep priorityRank in sync when priority changes through a query update
-// instead of doc.save().
-ticketSchema.pre(['updateOne', 'findOneAndUpdate', 'updateMany'], function syncPriorityRank() {
+// Keep the derived fields in sync when status/priority change through a
+// query update instead of doc.save().
+ticketSchema.pre(['updateOne', 'findOneAndUpdate', 'updateMany'], function syncDerivedFields() {
   const update = this.getUpdate() ?? {};
-  const priority = update.$set?.priority !== undefined ? update.$set.priority : update.priority;
+  const read = (field) => (update.$set?.[field] !== undefined ? update.$set[field] : update[field]);
+
+  const priority = read('priority');
   if (priority !== undefined) this.set('priorityRank', rankOf(priority));
+
+  const status = read('status');
+  if (status !== undefined) this.set('isUnresolved', isUnresolvedStatus(status));
 });
+
+/**
+ * Recomputes the derived fields for every ticket. Used by the seed to
+ * backfill documents written before a derived field existed. Idempotent.
+ */
+ticketSchema.statics.syncDerivedFields = async function syncDerivedFieldsForAll() {
+  await this.collection.bulkWrite([
+    { updateMany: { filter: { status: { $in: UNRESOLVED_STATUSES } }, update: { $set: { isUnresolved: true } } } },
+    { updateMany: { filter: { status: { $nin: UNRESOLVED_STATUSES } }, update: { $set: { isUnresolved: false } } } },
+    ...[...TICKET_PRIORITIES, null].map((priority) => ({
+      updateMany: { filter: { priority }, update: { $set: { priorityRank: rankOf(priority) } } },
+    })),
+  ]);
+};
 
 ticketSchema.statics.formatTicketNumber = formatTicketNumber;
 

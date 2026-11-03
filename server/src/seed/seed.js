@@ -7,6 +7,7 @@
  *   - demo passwords are reset every run so the documented credentials always work
  */
 import { readFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import { connectDB, disconnectDB } from '../config/db.js';
 import { AiDraft, Book, Counter, Ticket, TicketMessage, User, ROLES } from '../models/index.js';
 import { sampleTickets } from './sampleTickets.js';
@@ -127,8 +128,10 @@ const seedTickets = async ({ admin, authorsByCode, booksByCode }) => {
     const createdAt = new Date(now - t.daysAgo * DAY);
     const lastActivity = t.messages.at(-1)?.hoursAfter ?? 0;
 
-    // timestamps:false so we control createdAt (the queue sorts by age).
-    // The Ticket query hook still derives priorityRank from priority.
+    // timestamps:false so we control createdAt (the queue sorts by age), and
+    // overwriteImmutable because Mongoose otherwise drops createdAt from updates.
+    // Without it, re-runs silently kept the first run's dates.
+    // The Ticket query hooks still derive priorityRank and isUnresolved.
     const ticket = await Ticket.findOneAndUpdate(
       { ticketNumber },
       {
@@ -153,7 +156,7 @@ const seedTickets = async ({ admin, authorsByCode, booksByCode }) => {
           updatedAt: new Date(createdAt.getTime() + lastActivity * HOUR),
         },
       },
-      { upsert: true, returnDocument: 'after', timestamps: false, runValidators: true },
+      { upsert: true, returnDocument: 'after', timestamps: false, overwriteImmutable: true, runValidators: true },
     );
 
     // Rebuild the thread from scratch so re-runs never duplicate messages.
@@ -175,6 +178,10 @@ const seedTickets = async ({ admin, authorsByCode, booksByCode }) => {
 
   // New tickets created through the app must continue after the seeded ones.
   await Counter.ensureAtLeast('ticketNumber', sampleTickets.length);
+
+  // Backfill derived fields (isUnresolved, priorityRank) on any ticket written
+  // before those fields existed, including ones created through the app.
+  await Ticket.syncDerivedFields();
 };
 
 const printSummary = async (authors) => {
@@ -209,33 +216,44 @@ const printSummary = async (authors) => {
   ]);
 };
 
-const run = async () => {
+/**
+ * Seeds the currently connected database. Exported so tests can run it
+ * against an in-memory server and check that a second run changes nothing.
+ */
+export const seedDatabase = async ({ log = () => {} } = {}) => {
   const authors = await loadDataset();
 
   const issues = checkRoyaltyMath(authors);
-  if (issues.length) console.warn(`Dataset warnings:\n  ${issues.join('\n  ')}`);
-
-  await connectDB();
+  if (issues.length) log(`Dataset warnings:\n  ${issues.join('\n  ')}`);
 
   // Build declared indexes (and drop stale ones) before writing data.
   for (const model of [User, Book, Ticket, TicketMessage, AiDraft]) await model.syncIndexes();
 
   const { admin, authorsByCode } = await seedUsers(authors);
-  console.log(`✔ users: ${authorsByCode.size} authors + 1 admin`);
+  log(`✔ users: ${authorsByCode.size} authors + 1 admin`);
 
   const booksByCode = await seedBooks(authors, authorsByCode);
-  console.log(`✔ books: ${booksByCode.size}`);
+  log(`✔ books: ${booksByCode.size}`);
 
   await seedTickets({ admin, authorsByCode, booksByCode });
-  console.log(`✔ tickets: ${sampleTickets.length} demo tickets (BL-0001..${Ticket.formatTicketNumber(sampleTickets.length)})`);
+  log(`✔ tickets: ${sampleTickets.length} demo tickets (BL-0001..${Ticket.formatTicketNumber(sampleTickets.length)})`);
 
+  return { authors };
+};
+
+const runCli = async () => {
+  await connectDB();
+  const { authors } = await seedDatabase({ log: console.log });
   await printSummary(authors);
 };
 
-run()
-  .then(() => disconnectDB())
-  .catch(async (err) => {
-    console.error('Seed failed:', err);
-    await disconnectDB().catch(() => {});
-    process.exitCode = 1;
-  });
+// Run only when executed directly (npm run seed), not when imported by tests.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runCli()
+    .then(() => disconnectDB())
+    .catch(async (err) => {
+      console.error('Seed failed:', err);
+      await disconnectDB().catch(() => {});
+      process.exitCode = 1;
+    });
+}

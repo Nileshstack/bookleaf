@@ -39,7 +39,8 @@ ticketMessageSchema.statics.findThread = function findThread(ticketId, { viewerR
   }
   const filter = { ticketId };
   if (viewerRole !== ROLES.ADMIN) filter.isInternalNote = false;
-  return this.find(filter).sort({ createdAt: 1 });
+  // _id breaks ties between messages saved in the same millisecond (ObjectIds increase monotonically).
+  return this.find(filter).sort({ createdAt: 1, _id: 1 });
 };
 
 /**
@@ -59,7 +60,7 @@ ticketMessageSchema.statics.latestVisibleByTicket = async function latestVisible
 
   const rows = await this.aggregate([
     { $match: match },
-    { $sort: { createdAt: -1 } },
+    { $sort: { createdAt: -1, _id: -1 } },
     { $group: { _id: '$ticketId', last: { $first: '$$ROOT' }, count: { $sum: 1 } } },
   ]);
   return new Map(rows.map((r) => [String(r._id), { last: r.last, count: r.count }]));

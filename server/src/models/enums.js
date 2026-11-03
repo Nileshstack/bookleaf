@@ -7,6 +7,8 @@
 export const ROLES = Object.freeze({ AUTHOR: 'author', ADMIN: 'admin' });
 
 export const TICKET_STATUSES = Object.freeze(['Open', 'In Progress', 'Resolved', 'Closed']);
+// Still needs work from the team; drives the queue order and overdue checks.
+export const UNRESOLVED_STATUSES = Object.freeze(['Open', 'In Progress']);
 
 export const TICKET_CATEGORIES = Object.freeze([
   'Royalty & Payments',

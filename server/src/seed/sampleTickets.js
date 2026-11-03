@@ -91,7 +91,7 @@ export const sampleTickets = [
     status: 'In Progress',
     category: 'Book Status & Production Updates',
     priority: 'Medium',
-    daysAgo: 4,
+    daysAgo: 3.5, // 84h: inside the 96h Medium target
     assigned: true,
     messages: [
       {
@@ -124,7 +124,7 @@ export const sampleTickets = [
     status: 'Open',
     category: 'ISBN & Metadata Issues',
     priority: 'High',
-    daysAgo: 2,
+    daysAgo: 1.5, // 36h: inside the 48h High target
     assigned: false,
     messages: [],
   },
